@@ -87,6 +87,53 @@ git pull --rebase && git push
 If the user instructions conflict with rules set out here, ask for confirmation that they want to override the rules. Only then execute their instructions.
 
 
+# Payload Plugin Development
+
+This project is a **Payload CMS plugin** (`@adamdemian/payload-agent-plugin`). All source code lives in `src/`, with a `dev/` directory for local testing.
+
+For Payload CMS fundamentals (collections, fields, hooks, access control, queries, security patterns), refer to the installed `payload` skill and its reference files in `.agents/skills/payload/`.
+
+## Project Structure
+
+```
+src/                          # Plugin source code
+  index.ts                    # Entry point: plugin function + types
+dev/                          # Local dev environment (NOT plugin code)
+  payload.config.ts           # Test Payload config that uses the plugin
+  seed.ts                     # Seed data for dev/testing
+  int.spec.ts                 # Integration tests
+  e2e.spec.ts                 # End-to-end tests
+```
+
+## Plugin Architecture Rules
+
+- **Plugin signature**: `(options) => (config: Config) => Config` (curried function)
+- **Always spread existing config**: Never overwrite arrays/objects, always spread first
+  ```ts
+  // Correct
+  config.endpoints = [...(config.endpoints ?? []), myEndpoint]
+  // Wrong - destroys user's existing endpoints
+  config.endpoints = [myEndpoint]
+  ```
+- **Preserve existing onInit**: Save `config.onInit` reference, call it before plugin init
+- **Preserve existing hooks**: Spread `collection.hooks?.hookName || []` when adding hooks
+- **Provide `disabled` option**: Let users disable the plugin without uninstalling it
+- **Never store plugin logic in `dev/`**: That directory is purely for testing
+
+## Security Rules (Payload-Specific)
+
+- **Local API**: Always set `overrideAccess: false` when passing `user` to payload operations
+- **Transaction safety**: Always pass `req` to nested operations inside hooks
+- **Hook loops**: Use `context` flags to prevent infinite recursion
+- See `.agents/skills/payload/reference/PLUGIN-DEVELOPMENT.md` for full patterns
+
+## Plugin Testing
+
+- Integration tests live in `dev/int.spec.ts`
+- E2E tests live in `dev/e2e.spec.ts`
+- The dev project uses SQLite (`@payloadcms/db-sqlite`) for easy local testing
+- Run tests with the commands in the Commands section above
+
 # Ultracite Code Standards
 
 This project uses **Ultracite**, a zero-config preset that enforces strict code quality standards through automated formatting and linting.
