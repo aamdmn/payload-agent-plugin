@@ -5,6 +5,7 @@ import { Chat } from "chat";
 import type { Config, PayloadHandler } from "payload";
 import { type Agent, createAgent } from "./agent.js";
 
+const TELEGRAM_STREAM_EDIT_INTERVAL_MS = 700;
 const TYPING_HEARTBEAT_MS = 4000;
 
 export interface PayloadAgentPluginConfig {
@@ -16,6 +17,8 @@ export interface PayloadAgentPluginConfig {
     adapter: AnyTextAdapter;
     /** Log agent activity to stdout (default: false) */
     debug?: boolean;
+    /** Max output tokens per model call (default: 4096) */
+    maxTokens?: number;
     /** Additional system prompt appended to the default */
     systemPrompt?: string;
   };
@@ -46,6 +49,32 @@ const createWebhookHandler =
     return handler(req as unknown as Request);
   };
 
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return String(error);
+}
+
+function logHandlerError(thread: Thread, input: string, error: unknown): void {
+  const header = [
+    "[agent-handler] message handling failed",
+    `adapter=${thread.adapter.name}`,
+    `threadId=${thread.id}`,
+    `input=${JSON.stringify(input.slice(0, 200))}`,
+  ].join(" ");
+
+  process.stderr.write(`${header}\n`);
+
+  if (error instanceof Error && error.stack) {
+    process.stderr.write(`${error.stack}\n`);
+    return;
+  }
+
+  process.stderr.write(`${String(error)}\n`);
+}
+
 function startTypingHeartbeat(thread: Thread): () => void {
   let stopped = false;
 
@@ -73,17 +102,75 @@ function startTypingHeartbeat(thread: Thread): () => void {
   };
 }
 
+async function streamPlainTextForTelegram(
+  thread: Thread,
+  stream: AsyncIterable<string>
+): Promise<void> {
+  const sent = await thread.post("Working on it...");
+
+  let accumulated = "";
+  let lastEditedText = "Working on it...";
+  let lastEditAt = 0;
+
+  const maybeEdit = async (force: boolean): Promise<void> => {
+    const nextText = accumulated.trimStart();
+
+    if (nextText.length === 0 || nextText === lastEditedText) {
+      return;
+    }
+
+    const now = Date.now();
+    if (!force && now - lastEditAt < TELEGRAM_STREAM_EDIT_INTERVAL_MS) {
+      return;
+    }
+
+    await sent.edit(nextText);
+    lastEditedText = nextText;
+    lastEditAt = now;
+  };
+
+  for await (const delta of stream) {
+    accumulated += delta;
+    await maybeEdit(false);
+  }
+
+  await maybeEdit(true);
+
+  const finalText = accumulated.trimStart();
+
+  if (finalText.length === 0 || finalText === lastEditedText) {
+    return;
+  }
+
+  try {
+    await sent.edit({ markdown: finalText });
+  } catch {
+    // keep plain text final edit if markdown parsing fails
+  }
+}
+
 function registerAgentHandlers(chatInstance: Chat, agent: Agent): void {
   const handleMessage = async (thread: Thread, text: string): Promise<void> => {
     const stopTyping = startTypingHeartbeat(thread);
 
     try {
       const responseStream = agent.handleMessageStream(thread.id, text);
-      await thread.post(responseStream);
+
+      if (thread.adapter.name === "telegram") {
+        await streamPlainTextForTelegram(thread, responseStream);
+      } else {
+        await thread.post(responseStream);
+      }
     } catch (error) {
-      const msg =
-        error instanceof Error ? error.message : "An unexpected error occurred";
-      await thread.post(`Sorry, I encountered an error: ${msg}`);
+      logHandlerError(thread, text, error);
+
+      const message = getErrorMessage(error);
+
+      try {
+        await thread.post(`Sorry, I encountered an error: ${message}`);
+      } catch (postError) {
+        logHandlerError(thread, text, postError);
+      }
     } finally {
       stopTyping();
     }
@@ -151,6 +238,7 @@ export const payloadAgentPlugin =
         const agent = createAgent({
           adapter: pluginOptions.agent.adapter,
           debug: pluginOptions.agent.debug,
+          maxTokens: pluginOptions.agent.maxTokens,
           payload,
           systemPrompt: pluginOptions.agent.systemPrompt,
         });

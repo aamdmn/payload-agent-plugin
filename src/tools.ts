@@ -36,6 +36,27 @@ function extractFields(fields: Field[]): FieldInfo[] {
   return result;
 }
 
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return String(error);
+}
+
+function throwPayloadToolError(
+  operation: string,
+  context: Record<string, unknown>,
+  error: unknown
+): never {
+  const message = getErrorMessage(error);
+  const serializedContext = JSON.stringify(context);
+
+  throw new Error(
+    `[payload.${operation}] ${message}. Context: ${serializedContext}`
+  );
+}
+
 const getSchemaDefinition = toolDefinition({
   name: "getSchema",
   description:
@@ -78,6 +99,10 @@ const findDefinition = toolDefinition({
       .string()
       .optional()
       .describe("Field to sort by, prefix with - for descending"),
+    select: z
+      .record(z.string(), z.boolean())
+      .optional()
+      .describe("Select specific fields to reduce payload size"),
   }),
   outputSchema: z.object({
     docs: z.array(z.record(z.string(), z.unknown())),
@@ -93,6 +118,10 @@ const findByIDDefinition = toolDefinition({
   inputSchema: z.object({
     collection: z.string().describe("Collection slug"),
     id: z.string().describe("Document ID"),
+    select: z
+      .record(z.string(), z.boolean())
+      .optional()
+      .describe("Select specific fields to reduce payload size"),
   }),
   outputSchema: z.record(z.string(), z.unknown()),
 });
@@ -162,73 +191,128 @@ export function createPayloadTools(payload: BasePayload): ServerTool[] {
       };
     }),
 
-    findDefinition.server(async ({ collection, where, limit, page, sort }) => {
-      const result = await payload.find({
-        collection: collection as AnyCollection,
-        where: where as Where | undefined,
-        limit,
-        page,
-        sort,
-        overrideAccess: true,
-      });
+    findDefinition.server(
+      async ({ collection, where, limit, page, sort, select }) => {
+        try {
+          const result = await payload.find({
+            collection: collection as AnyCollection,
+            where: where as Where | undefined,
+            limit,
+            page,
+            sort,
+            select,
+            overrideAccess: true,
+          });
 
-      return {
-        docs: result.docs as Record<string, unknown>[],
-        totalDocs: result.totalDocs,
-        totalPages: result.totalPages,
-        page: result.page ?? 1,
-      };
-    }),
+          return {
+            docs: result.docs as Record<string, unknown>[],
+            totalDocs: result.totalDocs,
+            totalPages: result.totalPages,
+            page: result.page ?? 1,
+          };
+        } catch (error) {
+          throwPayloadToolError(
+            "find",
+            {
+              collection,
+              hasSelect: Boolean(select),
+              hasWhere: Boolean(where),
+              limit,
+              page,
+              sort,
+            },
+            error
+          );
+        }
+      }
+    ),
 
-    findByIDDefinition.server(async ({ collection, id }) => {
-      const doc = await payload.findByID({
-        collection: collection as AnyCollection,
-        id,
-        overrideAccess: true,
-      });
+    findByIDDefinition.server(async ({ collection, id, select }) => {
+      try {
+        const doc = await payload.findByID({
+          collection: collection as AnyCollection,
+          id,
+          select,
+          overrideAccess: true,
+        });
 
-      return doc as Record<string, unknown>;
+        return doc as Record<string, unknown>;
+      } catch (error) {
+        throwPayloadToolError(
+          "findByID",
+          { collection, hasSelect: Boolean(select), id },
+          error
+        );
+      }
     }),
 
     createDefinition.server(async ({ collection, data }) => {
-      const doc = await payload.create({
-        collection: collection as AnyCollection,
-        data,
-        overrideAccess: true,
-      });
+      try {
+        const doc = await payload.create({
+          collection: collection as AnyCollection,
+          data,
+          overrideAccess: true,
+        });
 
-      return doc as Record<string, unknown>;
+        return doc as Record<string, unknown>;
+      } catch (error) {
+        throwPayloadToolError(
+          "create",
+          { collection, dataKeys: Object.keys(data) },
+          error
+        );
+      }
     }),
 
     updateDefinition.server(async ({ collection, id, data }) => {
-      const doc = await payload.update({
-        collection: collection as AnyCollection,
-        id,
-        data,
-        overrideAccess: true,
-      });
+      try {
+        const doc = await payload.update({
+          collection: collection as AnyCollection,
+          id,
+          data,
+          overrideAccess: true,
+        });
 
-      return doc as Record<string, unknown>;
+        return doc as Record<string, unknown>;
+      } catch (error) {
+        throwPayloadToolError(
+          "update",
+          { collection, id, dataKeys: Object.keys(data) },
+          error
+        );
+      }
     }),
 
     deleteDocDefinition.server(async ({ collection, id }) => {
-      const doc = await payload.delete({
-        collection: collection as AnyCollection,
-        id,
-        overrideAccess: true,
-      });
+      try {
+        const doc = await payload.delete({
+          collection: collection as AnyCollection,
+          id,
+          overrideAccess: true,
+        });
 
-      return doc as Record<string, unknown>;
+        return doc as Record<string, unknown>;
+      } catch (error) {
+        throwPayloadToolError("delete", { collection, id }, error);
+      }
     }),
 
     countDefinition.server(async ({ collection, where }) => {
-      const result = await payload.count({
-        collection: collection as AnyCollection,
-        where: where as Where | undefined,
-        overrideAccess: true,
-      });
+      try {
+        const result = await payload.count({
+          collection: collection as AnyCollection,
+          where: where as Where | undefined,
+          overrideAccess: true,
+        });
 
-      return { totalDocs: result.totalDocs };
+        return { totalDocs: result.totalDocs };
+      } catch (error) {
+        throwPayloadToolError(
+          "count",
+          { collection, hasWhere: Boolean(where) },
+          error
+        );
+      }
     }),
   ] as ServerTool[];
 }

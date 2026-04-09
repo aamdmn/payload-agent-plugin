@@ -69,6 +69,9 @@ export default buildConfig({
         agent: {
           adapter: anthropicText("claude-sonnet-4-6"),
           debug: true,
+          maxTokens: 20_000,
+          systemPrompt:
+            "Be concise and practical, do not use emojis, be direct and human. all lowecase, short sentences.",
         },
       }),
       // ...(process.env.OPENAI_API_KEY && {
