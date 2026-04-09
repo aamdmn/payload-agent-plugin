@@ -1,1 +1,2 @@
-export { BeforeDashboardClient } from '../components/BeforeDashboardClient.js'
+// biome-ignore lint/performance/noBarrelFile: package entry point for client exports
+export { BeforeDashboardClient } from "../components/before-dashboard-client.js";

@@ -1,11 +1,11 @@
-import type { ServerComponentProps } from 'payload'
+import type { ServerComponentProps } from "payload";
 
-import styles from './BeforeDashboardServer.module.css'
+import styles from "./before-dashboard-server.module.css";
 
 export const BeforeDashboardServer = async (props: ServerComponentProps) => {
-  const { payload } = props
+  const { payload } = props;
 
-  const { docs } = await payload.find({ collection: 'plugin-collection' })
+  const { docs } = await payload.find({ collection: "plugin-collection" });
 
   return (
     <div className={styles.wrapper}>
@@ -15,5 +15,5 @@ export const BeforeDashboardServer = async (props: ServerComponentProps) => {
         <div key={doc.id}>{doc.id}</div>
       ))}
     </div>
-  )
-}
+  );
+};

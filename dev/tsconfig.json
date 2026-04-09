@@ -16,20 +16,13 @@
   "compilerOptions": {
     "baseUrl": "./",
     "paths": {
-      "@payload-config": [
-        "./payload.config.ts"
-      ],
-      "payload-agent-plugin": [
-        "../src/index.ts"
-      ],
-      "payload-agent-plugin/client": [
-        "../src/exports/client.ts"
-      ],
-      "payload-agent-plugin/rsc": [
-        "../src/exports/rsc.ts"
-      ]
+      "@payload-config": ["./payload.config.ts"],
+      "payload-agent-plugin": ["../src/index.ts"],
+      "payload-agent-plugin/client": ["../src/exports/client.ts"],
+      "payload-agent-plugin/rsc": ["../src/exports/rsc.ts"]
     },
     "noEmit": true,
     "emitDeclarationOnly": false,
+    "strictNullChecks": true
   }
 }

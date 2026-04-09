@@ -1,14 +1,14 @@
-import path from 'path'
-import { loadEnv } from 'payload/node'
-import { fileURLToPath } from 'url'
-import tsconfigPaths from 'vite-tsconfig-paths'
-import { defineConfig } from 'vitest/config'
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { loadEnv } from "payload/node";
+import tsconfigPaths from "vite-tsconfig-paths";
+import { defineConfig } from "vitest/config";
 
-const filename = fileURLToPath(import.meta.url)
-const dirname = path.dirname(filename)
+const filename = fileURLToPath(import.meta.url);
+const dirname = path.dirname(filename);
 
 export default defineConfig(() => {
-  loadEnv(path.resolve(dirname, './dev'))
+  loadEnv(path.resolve(dirname, "./dev"));
 
   return {
     plugins: [
@@ -17,9 +17,10 @@ export default defineConfig(() => {
       }),
     ],
     test: {
-      environment: 'node',
+      environment: "node",
+      exclude: ["**/e2e.spec.*", "**/node_modules/**"],
       hookTimeout: 30_000,
       testTimeout: 30_000,
     },
-  }
-})
+  };
+});

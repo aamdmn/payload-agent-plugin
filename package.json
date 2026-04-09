@@ -1,5 +1,5 @@
 {
-  "name": "payload-agent-plugin",
+  "name": "@adamdemian/payload-agent-plugin",
   "version": "1.0.0",
   "description": "A blank template to get started with Payload 3.0",
   "license": "MIT",
@@ -38,18 +38,18 @@
     "dev:payload": "cross-env PAYLOAD_CONFIG_PATH=./dev/payload.config.ts payload",
     "generate:importmap": "pnpm dev:generate-importmap",
     "generate:types": "pnpm dev:generate-types",
-    "lint": "eslint",
-    "lint:fix": "eslint ./src --fix",
-    "test": "pnpm test:int && pnpm test:e2e",
+    "check": "ultracite check",
+    "fix": "ultracite fix",
+    "test": "pnpm test:int",
     "test:e2e": "playwright test",
-    "test:int": "vitest"
+    "test:int": "vitest run",
+    "prepare": "husky"
   },
   "devDependencies": {
-    "@eslint/eslintrc": "^3.2.0",
+    "@biomejs/biome": "2.4.10",
     "@payloadcms/db-mongodb": "3.37.0",
     "@payloadcms/db-postgres": "3.37.0",
     "@payloadcms/db-sqlite": "3.37.0",
-    "@payloadcms/eslint-config": "3.9.0",
     "@payloadcms/next": "3.37.0",
     "@payloadcms/richtext-lexical": "3.37.0",
     "@payloadcms/ui": "3.37.0",
@@ -61,14 +61,12 @@
     "@types/react-dom": "19.2.3",
     "copyfiles": "2.4.1",
     "cross-env": "^7.0.3",
-    "eslint": "^9.23.0",
-    "eslint-config-next": "16.2.2",
     "graphql": "^16.8.1",
+    "husky": "^9.1.7",
     "mongodb-memory-server": "10.1.4",
     "next": "16.2.2",
     "open": "^10.1.0",
     "payload": "3.37.0",
-    "prettier": "^3.4.2",
     "qs-esm": "8.0.1",
     "react": "19.2.4",
     "react-dom": "19.2.4",
@@ -76,6 +74,7 @@
     "sharp": "0.34.2",
     "sort-package-json": "^2.10.0",
     "typescript": "5.7.3",
+    "ultracite": "7.4.4",
     "vite-tsconfig-paths": "6.0.5",
     "vitest": "4.0.18"
   },
@@ -114,6 +113,5 @@
       "unrs-resolver"
     ]
   },
-  "registry": "https://registry.npmjs.org/",
-  "dependencies": {}
+  "registry": "https://registry.npmjs.org/"
 }
