@@ -15,7 +15,7 @@ const nextConfig = {
 
     return webpackConfig;
   },
-  serverExternalPackages: ["mongodb-memory-server"],
+  serverExternalPackages: [],
 };
 
 export default withPayload(nextConfig, { devBundleServerPackages: false });
