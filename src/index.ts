@@ -1,118 +1,88 @@
-import type { CollectionSlug, Config } from "payload";
-
-import { customEndpointHandler } from "./endpoints/custom-endpoint-handler.js";
+import { createMemoryState } from "@chat-adapter/state-memory";
+import type { Adapter, StateAdapter } from "chat";
+import { Chat } from "chat";
+import type { Config, PayloadHandler } from "payload";
 
 export interface PayloadAgentPluginConfig {
   /**
-   * List of collections to add a custom field
+   * Chat platform adapters (e.g. telegram, slack, whatsapp).
    */
-  collections?: Partial<Record<CollectionSlug, true>>;
+  adapters?: Record<string, Adapter>;
+  /**
+   * Disable the plugin without removing it from the config.
+   */
   disabled?: boolean;
+  /**
+   * State adapter for subscriptions and deduplication.
+   * Defaults to in-memory state if not provided.
+   */
+  state?: StateAdapter;
 }
 
-const addPluginFieldsToCollections = (
-  config: Config,
-  collections: Partial<Record<CollectionSlug, true>>
-) => {
-  for (const collectionSlug of Object.keys(collections)) {
-    const collection = config.collections?.find(
-      (c) => c.slug === collectionSlug
-    );
-
-    if (collection) {
-      collection.fields.push({
-        name: "addedByPlugin",
-        type: "text",
-        admin: {
-          position: "sidebar",
-        },
-      });
+const createWebhookHandler =
+  (chat: Chat): PayloadHandler =>
+  (req) => {
+    const platform = req.routeParams?.platform as string | undefined;
+    if (!platform) {
+      return Response.json({ error: "Missing platform" }, { status: 400 });
     }
-  }
-};
+
+    const handler = chat.webhooks[platform as keyof typeof chat.webhooks];
+    if (!handler) {
+      return Response.json(
+        { error: `Unknown platform: ${platform}` },
+        { status: 404 }
+      );
+    }
+
+    return handler(req as unknown as Request);
+  };
 
 export const payloadAgentPlugin =
-  (pluginOptions: PayloadAgentPluginConfig) =>
+  (pluginOptions: PayloadAgentPluginConfig = {}) =>
   (config: Config): Config => {
-    if (!config.collections) {
-      config.collections = [];
-    }
-
-    config.collections.push({
-      slug: "plugin-collection",
-      fields: [
-        {
-          name: "id",
-          type: "text",
-        },
-      ],
-    });
-
-    if (pluginOptions.collections) {
-      addPluginFieldsToCollections(config, pluginOptions.collections);
-    }
-
-    /**
-     * If the plugin is disabled, we still want to keep added collections/fields so the database schema is consistent which is important for migrations.
-     * If your plugin heavily modifies the database schema, you may want to remove this property.
-     */
     if (pluginOptions.disabled) {
       return config;
     }
 
-    if (!config.endpoints) {
-      config.endpoints = [];
+    const adapters = pluginOptions.adapters ?? {};
+
+    if (Object.keys(adapters).length === 0) {
+      return config;
     }
 
-    if (!config.admin) {
-      config.admin = {};
-    }
-
-    if (!config.admin.components) {
-      config.admin.components = {};
-    }
-
-    if (!config.admin.components.beforeDashboard) {
-      config.admin.components.beforeDashboard = [];
-    }
-
-    config.admin.components.beforeDashboard.push(
-      "payload-agent-plugin/client#BeforeDashboardClient"
-    );
-    config.admin.components.beforeDashboard.push(
-      "payload-agent-plugin/rsc#BeforeDashboardServer"
-    );
-
-    config.endpoints.push({
-      handler: customEndpointHandler,
-      method: "get",
-      path: "/my-plugin-endpoint",
+    const chat = new Chat({
+      userName: "payload-agent",
+      adapters,
+      state: pluginOptions.state ?? createMemoryState(),
     });
 
-    const incomingOnInit = config.onInit;
+    chat.onDirectMessage(async (thread, message) => {
+      await thread.post(`Echo: ${message.text}`);
+    });
 
+    chat.onNewMention(async (thread, message) => {
+      await thread.post(`You said: ${message.text}`);
+    });
+
+    config.endpoints = [
+      ...(config.endpoints ?? []),
+      {
+        handler: createWebhookHandler(chat),
+        method: "post",
+        path: "/agent/webhooks/:platform",
+      },
+    ];
+
+    config.custom = {
+      ...config.custom,
+      chat,
+    };
+
+    const existingOnInit = config.onInit;
     config.onInit = async (payload) => {
-      if (incomingOnInit) {
-        await incomingOnInit(payload);
-      }
-
-      const { totalDocs } = await payload.count({
-        collection: "plugin-collection",
-        where: {
-          id: {
-            equals: "seeded-by-plugin",
-          },
-        },
-      });
-
-      if (totalDocs === 0) {
-        await payload.create({
-          collection: "plugin-collection",
-          data: {
-            id: "seeded-by-plugin",
-          },
-        });
-      }
+      await existingOnInit?.(payload);
+      await chat.initialize();
     };
 
     return config;

@@ -1,5 +1,6 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { createTelegramAdapter } from "@chat-adapter/telegram";
 import { sqliteAdapter } from "@payloadcms/db-sqlite";
 import { lexicalEditor } from "@payloadcms/richtext-lexical";
 import { buildConfig } from "payload";
@@ -25,11 +26,20 @@ export default buildConfig({
   collections: [
     {
       slug: "posts",
-      fields: [],
+      fields: [
+        { name: "title", type: "text", required: true },
+        {
+          name: "status",
+          type: "select",
+          options: ["draft", "published", "archived"],
+          defaultValue: "draft",
+        },
+        { name: "content", type: "richText" },
+      ],
     },
     {
       slug: "media",
-      fields: [],
+      fields: [{ name: "alt", type: "text" }],
       upload: {
         staticDir: path.resolve(dirname, "media"),
       },
@@ -47,8 +57,8 @@ export default buildConfig({
   },
   plugins: [
     payloadAgentPlugin({
-      collections: {
-        posts: true,
+      adapters: {
+        telegram: createTelegramAdapter({ mode: "polling" }),
       },
     }),
   ],
