@@ -63,6 +63,9 @@ importers:
       '@tanstack/ai-anthropic':
         specifier: ^0.7.2
         version: 0.7.2(@tanstack/ai@0.10.1)(zod@4.3.6)
+      '@tanstack/ai-openai':
+        specifier: ^0.7.3
+        version: 0.7.3(@tanstack/ai-client@0.7.8)(@tanstack/ai@0.10.1)(ws@8.20.0)(zod@4.3.6)
       '@types/node':
         specifier: 22.19.9
         version: 22.19.9
@@ -2141,6 +2144,9 @@ packages:
       '@tanstack/ai': ^0.10.0
       zod: ^4.0.0
 
+  '@tanstack/ai-client@0.7.8':
+    resolution: {integrity: sha512-va69Dhl5WPc+cJgiI/Bq9TaxBTPy9BEc/ArcFBhQPtpkv7MX3wldxn4Z6lDvYH32xAc4OjEBF9Ebq3KBP78oAA==}
+
   '@tanstack/ai-code-mode@0.1.1':
     resolution: {integrity: sha512-d4yEsScXW0qQJYxYMFdr4Xe8o7ejygvCwi1d0OPFrAVZwImj43XjBpYrn/sDrSTyFeFmgnUnPkEljmaM40rM0g==}
     engines: {node: '>=18'}
@@ -2158,6 +2164,13 @@ packages:
     engines: {node: '>=18'}
     peerDependencies:
       '@tanstack/ai-code-mode': 0.1.1
+
+  '@tanstack/ai-openai@0.7.3':
+    resolution: {integrity: sha512-xdxTR7E/BzeQcFte/chDA//2WpZQqDQF4op1TgKNoaTqffW9+JMlSubaZbMkawtJoImVCGjZoPVkUfb8aRldNA==}
+    peerDependencies:
+      '@tanstack/ai': ^0.10.0
+      '@tanstack/ai-client': ^0.7.7
+      zod: ^4.0.0
 
   '@tanstack/ai@0.10.1':
     resolution: {integrity: sha512-hPjwgVpsazcvJqPyaXkQxJY13ExKL2sftlUrWM7tk92gBd7+gbKkpBVDVkLmvfRClhDNpweDk1Anu/ezflk1TQ==}
@@ -3733,6 +3746,18 @@ packages:
   open@10.2.0:
     resolution: {integrity: sha512-YgBpdJHPyQ2UE5x+hlSXcnejzAvD0b22U2OuAP+8OnlJT+PjWPxtgmGqKKc+RgTM63U9gN0YzrYc71R2WT/hTA==}
     engines: {node: '>=18'}
+
+  openai@6.34.0:
+    resolution: {integrity: sha512-yEr2jdGf4tVFYG6ohmr3pF6VJuveP0EA/sS8TBx+4Eq5NT10alu5zg2dmxMXMgqpihRDQlFGpRt2XwsGj+Fyxw==}
+    hasBin: true
+    peerDependencies:
+      ws: ^8.18.0
+      zod: ^3.25 || ^4.0
+    peerDependenciesMeta:
+      ws:
+        optional: true
+      zod:
+        optional: true
 
   oxc-resolver@1.12.0:
     resolution: {integrity: sha512-YlaCIArvWNKCWZFRrMjhh2l5jK80eXnpYP+bhRc1J/7cW3TiyEY0ngJo73o/5n8hA3+4yLdTmXLNTQ3Ncz50LQ==}
@@ -6378,6 +6403,11 @@ snapshots:
       '@tanstack/ai': 0.10.1
       zod: 4.3.6
 
+  '@tanstack/ai-client@0.7.8':
+    dependencies:
+      '@tanstack/ai': 0.10.1
+      '@tanstack/ai-event-client': 0.2.1(@tanstack/ai@0.10.1)
+
   '@tanstack/ai-code-mode@0.1.1(@tanstack/ai@0.10.1)(zod@4.3.6)':
     dependencies:
       '@tanstack/ai': 0.10.1
@@ -6393,6 +6423,15 @@ snapshots:
     dependencies:
       '@tanstack/ai-code-mode': 0.1.1(@tanstack/ai@0.10.1)(zod@4.3.6)
       isolated-vm: 6.1.2
+
+  '@tanstack/ai-openai@0.7.3(@tanstack/ai-client@0.7.8)(@tanstack/ai@0.10.1)(ws@8.20.0)(zod@4.3.6)':
+    dependencies:
+      '@tanstack/ai': 0.10.1
+      '@tanstack/ai-client': 0.7.8
+      openai: 6.34.0(ws@8.20.0)(zod@4.3.6)
+      zod: 4.3.6
+    transitivePeerDependencies:
+      - ws
 
   '@tanstack/ai@0.10.1':
     dependencies:
@@ -8184,6 +8223,11 @@ snapshots:
       define-lazy-prop: 3.0.0
       is-inside-container: 1.0.0
       wsl-utils: 0.1.0
+
+  openai@6.34.0(ws@8.20.0)(zod@4.3.6):
+    optionalDependencies:
+      ws: 8.20.0
+      zod: 4.3.6
 
   oxc-resolver@1.12.0:
     optionalDependencies:

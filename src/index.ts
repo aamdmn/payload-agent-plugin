@@ -1,39 +1,27 @@
 import { createMemoryState } from "@chat-adapter/state-memory";
 import type { AnyTextAdapter } from "@tanstack/ai";
-import type { Adapter, StateAdapter } from "chat";
+import type { Adapter, StateAdapter, Thread } from "chat";
 import { Chat } from "chat";
 import type { Config, PayloadHandler } from "payload";
 import { type Agent, createAgent } from "./agent.js";
 
+const TYPING_HEARTBEAT_MS = 4000;
+
 export interface PayloadAgentPluginConfig {
-  /**
-   * Chat platform adapters (e.g. telegram, slack, whatsapp).
-   */
+  /** Chat platform adapters (e.g. telegram, slack, whatsapp). */
   adapters?: Record<string, Adapter>;
-  /**
-   * AI agent configuration. When provided, the agent uses TanStack AI
-   * with Code Mode to handle messages instead of echoing them back.
-   */
+  /** AI agent configuration. */
   agent?: {
     /** TanStack AI text adapter (e.g. anthropicText('claude-haiku-4-5')) */
     adapter: AnyTextAdapter;
-    /** Additional system prompt appended to the default */
-    systemPrompt?: string;
-    /** Code Mode sandbox execution timeout in ms (default: 30000) */
-    timeout?: number;
-    /** Code Mode sandbox memory limit in MB (default: 128) */
-    memoryLimit?: number;
     /** Log agent activity to stdout (default: false) */
     debug?: boolean;
+    /** Additional system prompt appended to the default */
+    systemPrompt?: string;
   };
-  /**
-   * Disable the plugin without removing it from the config.
-   */
+  /** Disable the plugin without removing it from the config. */
   disabled?: boolean;
-  /**
-   * State adapter for subscriptions and deduplication.
-   * Defaults to in-memory state if not provided.
-   */
+  /** State adapter for subscriptions and deduplication. */
   state?: StateAdapter;
 }
 
@@ -41,11 +29,13 @@ const createWebhookHandler =
   (chat: Chat): PayloadHandler =>
   (req) => {
     const platform = req.routeParams?.platform as string | undefined;
+
     if (!platform) {
       return Response.json({ error: "Missing platform" }, { status: 400 });
     }
 
     const handler = chat.webhooks[platform as keyof typeof chat.webhooks];
+
     if (!handler) {
       return Response.json(
         { error: `Unknown platform: ${platform}` },
@@ -56,27 +46,55 @@ const createWebhookHandler =
     return handler(req as unknown as Request);
   };
 
-function registerAgentHandlers(chatInstance: Chat, agent: Agent): void {
-  chatInstance.onDirectMessage(async (thread, message) => {
+function startTypingHeartbeat(thread: Thread): () => void {
+  let stopped = false;
+
+  const sendTyping = async (): Promise<void> => {
+    if (stopped) {
+      return;
+    }
+
     try {
-      const response = await agent.handleMessage(thread.id, message.text);
-      await thread.post(response);
+      await thread.startTyping();
+    } catch {
+      // ignore typing errors to avoid affecting message handling
+    }
+  };
+
+  sendTyping().catch(() => undefined);
+
+  const interval = setInterval(() => {
+    sendTyping().catch(() => undefined);
+  }, TYPING_HEARTBEAT_MS);
+
+  return () => {
+    stopped = true;
+    clearInterval(interval);
+  };
+}
+
+function registerAgentHandlers(chatInstance: Chat, agent: Agent): void {
+  const handleMessage = async (thread: Thread, text: string): Promise<void> => {
+    const stopTyping = startTypingHeartbeat(thread);
+
+    try {
+      const responseStream = agent.handleMessageStream(thread.id, text);
+      await thread.post(responseStream);
     } catch (error) {
       const msg =
         error instanceof Error ? error.message : "An unexpected error occurred";
       await thread.post(`Sorry, I encountered an error: ${msg}`);
+    } finally {
+      stopTyping();
     }
+  };
+
+  chatInstance.onDirectMessage(async (thread, message) => {
+    await handleMessage(thread, message.text);
   });
 
   chatInstance.onNewMention(async (thread, message) => {
-    try {
-      const response = await agent.handleMessage(thread.id, message.text);
-      await thread.post(response);
-    } catch (error) {
-      const msg =
-        error instanceof Error ? error.message : "An unexpected error occurred";
-      await thread.post(`Sorry, I encountered an error: ${msg}`);
-    }
+    await handleMessage(thread, message.text);
   });
 }
 
@@ -107,6 +125,7 @@ export const payloadAgentPlugin =
       userName: "payload-agent",
       adapters,
       state: pluginOptions.state ?? createMemoryState(),
+      fallbackStreamingPlaceholderText: null,
     });
 
     config.endpoints = [
@@ -124,17 +143,16 @@ export const payloadAgentPlugin =
     };
 
     const existingOnInit = config.onInit;
+
     config.onInit = async (payload) => {
       await existingOnInit?.(payload);
 
       if (pluginOptions.agent) {
         const agent = createAgent({
           adapter: pluginOptions.agent.adapter,
+          debug: pluginOptions.agent.debug,
           payload,
           systemPrompt: pluginOptions.agent.systemPrompt,
-          timeout: pluginOptions.agent.timeout,
-          memoryLimit: pluginOptions.agent.memoryLimit,
-          debug: pluginOptions.agent.debug,
         });
         registerAgentHandlers(chatInstance, agent);
       } else {

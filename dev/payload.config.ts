@@ -4,6 +4,7 @@ import { createTelegramAdapter } from "@chat-adapter/telegram";
 import { sqliteAdapter } from "@payloadcms/db-sqlite";
 import { lexicalEditor } from "@payloadcms/richtext-lexical";
 import { anthropicText } from "@tanstack/ai-anthropic";
+
 import { buildConfig } from "payload";
 import { payloadAgentPlugin } from "payload-agent-plugin";
 import sharp from "sharp";
@@ -66,10 +67,16 @@ export default buildConfig({
       adapters,
       ...(process.env.ANTHROPIC_API_KEY && {
         agent: {
-          adapter: anthropicText("claude-haiku-4-5"),
+          adapter: anthropicText("claude-sonnet-4-6"),
           debug: true,
         },
       }),
+      // ...(process.env.OPENAI_API_KEY && {
+      //   agent: {
+      //     adapter: openaiText("gpt-5.4-mini"),
+      //     debug: true,
+      //   },
+      // }),
     }),
   ],
   secret: process.env.PAYLOAD_SECRET || "test-secret_key",
