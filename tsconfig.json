@@ -1,6 +1,9 @@
 {
   "compilerOptions": {
     "baseUrl": ".",
+    "paths": {
+      "payload-agent-plugin": ["./src/index.ts"]
+    },
     "lib": ["DOM", "DOM.Iterable", "ES2022"],
     "rootDir": "./",
     "allowJs": true,

@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url";
 import { createTelegramAdapter } from "@chat-adapter/telegram";
 import { sqliteAdapter } from "@payloadcms/db-sqlite";
 import { lexicalEditor } from "@payloadcms/richtext-lexical";
+import { anthropicText } from "@tanstack/ai-anthropic";
 import { buildConfig } from "payload";
 import { payloadAgentPlugin } from "payload-agent-plugin";
 import sharp from "sharp";
@@ -15,6 +16,11 @@ const dirname = path.dirname(filename);
 
 if (!process.env.ROOT_DIR) {
   process.env.ROOT_DIR = dirname;
+}
+
+const adapters: Record<string, ReturnType<typeof createTelegramAdapter>> = {};
+if (process.env.TELEGRAM_BOT_TOKEN) {
+  adapters.telegram = createTelegramAdapter({ mode: "polling" });
 }
 
 export default buildConfig({
@@ -57,9 +63,13 @@ export default buildConfig({
   },
   plugins: [
     payloadAgentPlugin({
-      adapters: {
-        telegram: createTelegramAdapter({ mode: "polling" }),
-      },
+      adapters,
+      ...(process.env.ANTHROPIC_API_KEY && {
+        agent: {
+          adapter: anthropicText("claude-haiku-4-5"),
+          debug: true,
+        },
+      }),
     }),
   ],
   secret: process.env.PAYLOAD_SECRET || "test-secret_key",

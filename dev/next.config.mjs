@@ -15,7 +15,12 @@ const nextConfig = {
 
     return webpackConfig;
   },
-  serverExternalPackages: [],
+  serverExternalPackages: [
+    "@tanstack/ai-code-mode",
+    "@tanstack/ai-isolate-node",
+    "esbuild",
+    "isolated-vm",
+  ],
 };
 
 export default withPayload(nextConfig, { devBundleServerPackages: false });

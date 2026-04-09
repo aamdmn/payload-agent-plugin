@@ -47,6 +47,7 @@
     "@playwright/test": "1.58.2",
     "@swc-node/register": "1.10.9",
     "@swc/cli": "0.6.0",
+    "@tanstack/ai-anthropic": "^0.7.2",
     "@types/node": "22.19.9",
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
@@ -91,12 +92,17 @@
     "onlyBuiltDependencies": [
       "sharp",
       "esbuild",
-      "unrs-resolver"
+      "unrs-resolver",
+      "isolated-vm"
     ]
   },
   "registry": "https://registry.npmjs.org/",
   "dependencies": {
     "@chat-adapter/state-memory": "^4.24.0",
-    "chat": "^4.24.0"
+    "@tanstack/ai": "^0.10.1",
+    "@tanstack/ai-code-mode": "^0.1.1",
+    "@tanstack/ai-isolate-node": "^0.1.1",
+    "chat": "^4.24.0",
+    "zod": "^4.3.6"
   }
 }
