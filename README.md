@@ -9,7 +9,7 @@
 
 Adds a conversational AI agent directly inside your Payload instance. Users query and manage content through chat platforms without leaving their messaging app.
 
-Powered by [Chat SDK](https://www.npmjs.com/package/chat) for multi-platform messaging, [TanStack AI](https://tanstack.com/ai) for model orchestration, and [Code Mode](https://tanstack.com/ai/code-mode) for reliable tool execution -- a sandboxed alternative to MCP that runs TypeScript directly against the Payload Local API.
+Powered by [Chat SDK](https://www.npmjs.com/package/chat) for multi-platform messaging, [TanStack AI](https://tanstack.com/ai) for model orchestration, and [Code Mode](https://tanstack.com/ai/latest/docs/code-mode/code-mode) for reliable tool execution -- a sandboxed alternative to MCP that runs TypeScript directly against the Payload Local API.
 
 ## Status
 
