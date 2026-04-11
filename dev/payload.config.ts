@@ -3,7 +3,9 @@ import { fileURLToPath } from "node:url";
 import { createTelegramAdapter } from "@chat-adapter/telegram";
 import { sqliteAdapter } from "@payloadcms/db-sqlite";
 import { lexicalEditor } from "@payloadcms/richtext-lexical";
-import { anthropicText } from "@tanstack/ai-anthropic";
+
+// import { anthropicText } from "@tanstack/ai-anthropic";
+import { openaiText } from "@tanstack/ai-openai";
 
 import { buildConfig } from "payload";
 import { payloadAgentPlugin } from "payload-agent-plugin";
@@ -65,21 +67,24 @@ export default buildConfig({
   plugins: [
     payloadAgentPlugin({
       adapters,
-      ...(process.env.ANTHROPIC_API_KEY && {
+      // ...(process.env.ANTHROPIC_API_KEY && {
+      //   agent: {
+      //     adapter: anthropicText("claude-sonnet-4-6"),
+      //     debug: true,
+      //     maxTokens: 20_000,
+      //     systemPrompt:
+      //       "Be concise and practical, do not use emojis, be direct and human. all lowecase, short sentences.",
+      //   },
+      // }),
+      ...(process.env.OPENAI_API_KEY && {
         agent: {
-          adapter: anthropicText("claude-sonnet-4-6"),
+          adapter: openaiText("gpt-5.4-mini"),
           debug: true,
           maxTokens: 20_000,
           systemPrompt:
             "Be concise and practical, do not use emojis, be direct and human. all lowecase, short sentences.",
         },
       }),
-      // ...(process.env.OPENAI_API_KEY && {
-      //   agent: {
-      //     adapter: openaiText("gpt-5.4-mini"),
-      //     debug: true,
-      //   },
-      // }),
     }),
   ],
   secret: process.env.PAYLOAD_SECRET || "test-secret_key",
