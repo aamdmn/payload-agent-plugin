@@ -1,4 +1,4 @@
 export const devUser = {
-  email: "dev@payloadcms.com",
-  password: "test",
+  email: "admin@admin.com",
+  password: "admin",
 };

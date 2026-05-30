@@ -37,13 +37,14 @@ export default buildConfig({
       slug: "posts",
       fields: [
         { name: "title", type: "text", required: true },
+        { name: "summary", type: "text", localized: true },
         {
           name: "status",
           type: "select",
           options: ["draft", "published", "archived"],
           defaultValue: "draft",
         },
-        { name: "content", type: "richText" },
+        { name: "content", type: "richText", localized: true },
       ],
     },
     {
@@ -59,6 +60,10 @@ export default buildConfig({
       url: process.env.DATABASE_URL || "file:./dev/data.db",
     },
   }),
+  localization: {
+    defaultLocale: "en",
+    locales: ["en", "es", "de"],
+  },
   editor: lexicalEditor(),
   email: testEmailAdapter,
   onInit: async (payload) => {

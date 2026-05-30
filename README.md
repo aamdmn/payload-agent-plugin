@@ -13,10 +13,9 @@ Powered by [Chat SDK](https://www.npmjs.com/package/chat) for multi-platform mes
 
 ## Status
 
-**Work in progress.** The core agent loop, chat integrations, and content operations work. Several areas are not yet implemented:
+**Work in progress.** The core agent loop, chat integrations, content operations, rich text, and localization work. Several areas are not yet implemented:
 
 - Media management (uploads, image handling)
-- Localization (locale cloning, locale-aware queries)
 - Folder handling
 
 ## Quick Start
@@ -59,6 +58,25 @@ Set your API keys in environment variables and start chatting with your bot.
 
 The agent runs TypeScript through Code Mode, so it can compose multi-step operations in a single turn (e.g. find, filter in code, then create a summary document).
 
+## Localization
+
+When your Payload config has `localization` enabled, the agent becomes
+locale-aware automatically — no extra configuration. `find`, `findByID`,
+`create`, `update`, and `count` accept `locale` and `fallbackLocale`, and the
+schema marks which fields are `localized`.
+
+Because the agent is an LLM, it can actually translate rather than just copy
+content. A request like "translate post 5 into Spanish and German" becomes:
+
+1. Read every locale at once with `locale: "all"` and `fallbackLocale: "false"`
+   to see existing values and which locales are missing.
+2. Translate the content (richText comes back as Markdown).
+3. Write each target locale in its own `update` call with `locale: "es"` etc.
+
+Localized fields are written one locale per call with plain values — the plugin
+rejects a per-locale object on write (a common mistake that would otherwise
+corrupt the field) with a message the agent can recover from.
+
 ## Configuration
 
 ```ts
@@ -74,13 +92,59 @@ payloadAgentPlugin({
     systemPrompt?: string,         // appended to default prompt
   },
 
-  // State adapter for subscriptions (defaults to in-memory)
+  // How richText (Lexical) fields are exchanged with the agent.
+  // "markdown" (default): agent reads/writes Markdown, converted to and from
+  // Lexical editor state via Payload's official converters.
+  // "lexical": agent works with raw Lexical editor state.
+  richText?: "markdown" | "lexical",
+
+  // State adapter backing conversation history, locks, and dedup.
+  // Defaults to in-memory. Use a persistent adapter in production (see below).
   state?: StateAdapter,
+
+  // Concurrency strategy for messages on the same thread.
+  // Default drops a message that arrives mid-reply; "queue" processes in order.
+  concurrency?: ConcurrencyStrategy | ConcurrencyConfig,
 
   // Disable plugin without removing from config
   disabled?: boolean,
 })
 ```
+
+## Production
+
+Conversation history, per-thread locks, and webhook deduplication are stored in
+the configured state adapter. The default is **in-memory**, which is fine for
+local development but **does not persist across restarts and does not work
+across multiple instances** -- the bot forgets every conversation on restart.
+
+For production, pass a persistent state adapter. Both auto-detect their
+connection string from the environment:
+
+```ts
+// Reuse your Payload Postgres database (zero extra infrastructure):
+import { createPostgresState } from "@chat-adapter/state-pg";
+
+payloadAgentPlugin({
+  // ...
+  state: createPostgresState(), // reads POSTGRES_URL / DATABASE_URL
+  concurrency: "queue",         // don't drop a user's follow-up mid-reply
+});
+```
+
+```ts
+// Or Redis:
+import { createRedisState } from "@chat-adapter/state-redis";
+
+payloadAgentPlugin({
+  // ...
+  state: createRedisState(), // reads REDIS_URL
+});
+```
+
+Install the adapter you choose (`@chat-adapter/state-pg` or
+`@chat-adapter/state-redis`). When no `state` is configured in production, the
+plugin logs a warning.
 
 ## Supported Platforms
 
