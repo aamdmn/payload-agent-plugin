@@ -1,13 +1,18 @@
-import type { AnyTextAdapter, ModelMessage, StreamChunk } from "@tanstack/ai";
+import type { AnyTextAdapter, StreamChunk } from "@tanstack/ai";
 import { chat, maxIterations } from "@tanstack/ai";
 import { createCodeMode } from "@tanstack/ai-code-mode";
 import { createNodeIsolateDriver } from "@tanstack/ai-isolate-node";
+import type { StateAdapter } from "chat";
 import type { BasePayload } from "payload";
+import { createConversationHistory } from "./conversation-history.js";
 import { loggingMiddleware } from "./logger.js";
-import { buildSchemaDescription, createPayloadTools } from "./tools.js";
+import {
+  buildSchemaDescription,
+  createPayloadTools,
+  type RichTextMode,
+} from "./tools.js";
 
 const MAX_AGENT_ITERATIONS = 10;
-const MAX_HISTORY_MESSAGES = 50;
 const MIN_STREAM_VISIBLE_CHARS = 5;
 const DEFAULT_MAX_TOKENS = 4096;
 const TOKEN_LIMIT_NOTICE =
@@ -22,6 +27,10 @@ export interface AgentConfig {
   maxTokens?: number;
   /** Payload instance -- available after onInit */
   payload: BasePayload;
+  /** How richText fields are exchanged with the agent (default: 'markdown') */
+  richText?: RichTextMode;
+  /** State adapter that backs per-thread conversation history */
+  state: StateAdapter;
   /** Optional additional system prompt appended to the default */
   systemPrompt?: string;
 }
@@ -59,7 +68,11 @@ function getRunErrorMessage(chunk: StreamChunk): null | string {
     return null;
   }
 
-  return chunk.error?.message ?? "Unknown model stream error";
+  // As of @tanstack/ai 0.11+, the error message lives on the top-level
+  // `message` field. The nested `error` object is deprecated and stripped by
+  // the built-in stripToSpecMiddleware before chunks reach the consumer, so it
+  // is only kept here as a defensive fallback.
+  return chunk.message || chunk.error?.message || "Unknown model stream error";
 }
 
 function isTokenLimitError(message: string): boolean {
@@ -215,7 +228,8 @@ function extractStreamText(
 }
 
 export function createAgent(config: AgentConfig): Agent {
-  const tools = createPayloadTools(config.payload);
+  const richTextMode = config.richText ?? "markdown";
+  const tools = createPayloadTools(config.payload, richTextMode);
   const driver = createNodeIsolateDriver();
 
   const { systemPrompt: codeModePrompt, tool: codeModeTool } = createCodeMode({
@@ -223,7 +237,23 @@ export function createAgent(config: AgentConfig): Agent {
     tools,
   });
 
-  const schemaDescription = buildSchemaDescription(config.payload);
+  const schemaDescription = buildSchemaDescription(
+    config.payload,
+    richTextMode
+  );
+
+  const richTextGuidance =
+    richTextMode === "markdown"
+      ? "Rich text fields (type richText) use Markdown. Pass a Markdown string when creating or updating them, and you will receive Markdown when reading. Use standard Markdown (headings, **bold**, *italic*, lists, [links](url)) and never indent Markdown lines."
+      : "";
+
+  const localization = config.payload.config.localization;
+  const localeGuidance = localization
+    ? [
+        `Localization is enabled. Locales: ${localization.localeCodes.join(", ")} (default: ${localization.defaultLocale}). Fields marked "localized" hold a separate value per locale.`,
+        "To translate content: read with locale 'all' and fallbackLocale 'false' to see every locale's values and find the missing ones, then translate and write ONE locale per call (set locale to the target code and pass plain scalar values -- never a per-locale object).",
+      ].join("\n")
+    : "";
 
   const baseSystemPrompt = [
     "You are a Payload CMS assistant. Help users query and manage their content.",
@@ -233,73 +263,67 @@ export function createAgent(config: AgentConfig): Agent {
     "",
     "Use the execute_typescript tool and call external_* functions to interact with Payload.",
     "When calling find/findByID, use the select option to fetch only fields you need.",
+    richTextGuidance,
+    localeGuidance,
     "Keep responses concise and practical.",
     config.systemPrompt ?? "",
   ]
     .filter(Boolean)
     .join("\n");
 
+  // Both system prompts are static across every turn in a conversation, so we
+  // attach an Anthropic prompt-caching breakpoint to the final block. A
+  // breakpoint caches the entire prefix up to and including it, so this caches
+  // baseSystemPrompt + codeModePrompt. Providers without prompt caching ignore
+  // the metadata -- it is dropped before reaching the wire (see SystemPrompt).
+  const systemPrompts = [
+    baseSystemPrompt,
+    {
+      content: codeModePrompt,
+      metadata: { cache_control: { type: "ephemeral" } },
+    },
+  ];
+
   const maxTokens = config.maxTokens ?? DEFAULT_MAX_TOKENS;
   const middleware = config.debug ? [loggingMiddleware] : [];
-  const conversations = new Map<string, ModelMessage[]>();
-
-  const getHistory = (threadId: string): ModelMessage[] => {
-    const existing = conversations.get(threadId);
-
-    if (existing) {
-      return existing;
-    }
-
-    const created: ModelMessage[] = [];
-    conversations.set(threadId, created);
-    return created;
-  };
-
-  const trimHistory = (threadId: string, history: ModelMessage[]): void => {
-    if (history.length <= MAX_HISTORY_MESSAGES) {
-      return;
-    }
-
-    conversations.set(threadId, history.slice(-MAX_HISTORY_MESSAGES));
-  };
+  const history = createConversationHistory(config.state);
 
   return {
     async handleMessage(threadId: string, text: string): Promise<string> {
-      const history = getHistory(threadId);
-      history.push({ role: "user", content: text });
+      await history.append(threadId, { role: "user", content: text });
+      const messages = await history.get(threadId);
 
       const response = await chat({
         adapter: config.adapter,
         agentLoopStrategy: maxIterations(MAX_AGENT_ITERATIONS),
         maxTokens,
-        messages: history,
+        messages,
         middleware,
         stream: false,
-        systemPrompts: [baseSystemPrompt, codeModePrompt],
+        systemPrompts,
         tools: [codeModeTool],
       });
 
-      history.push({ role: "assistant", content: response });
-      trimHistory(threadId, history);
+      await history.append(threadId, { role: "assistant", content: response });
 
       return response;
     },
 
     handleMessageStream(threadId: string, text: string): AsyncIterable<string> {
-      const history = getHistory(threadId);
-      history.push({ role: "user", content: text });
-
-      const rawStream = chat({
-        adapter: config.adapter,
-        agentLoopStrategy: maxIterations(MAX_AGENT_ITERATIONS),
-        maxTokens,
-        messages: history,
-        middleware,
-        systemPrompts: [baseSystemPrompt, codeModePrompt],
-        tools: [codeModeTool],
-      }) as AsyncIterable<StreamChunk>;
-
       return (async function* () {
+        await history.append(threadId, { role: "user", content: text });
+        const messages = await history.get(threadId);
+
+        const rawStream = chat({
+          adapter: config.adapter,
+          agentLoopStrategy: maxIterations(MAX_AGENT_ITERATIONS),
+          maxTokens,
+          messages,
+          middleware,
+          systemPrompts,
+          tools: [codeModeTool],
+        }) as AsyncIterable<StreamChunk>;
+
         let response = "";
         let completed = false;
 
@@ -316,8 +340,10 @@ export function createAgent(config: AgentConfig): Agent {
           completed = true;
         } finally {
           if (completed) {
-            history.push({ role: "assistant", content: response });
-            trimHistory(threadId, history);
+            await history.append(threadId, {
+              role: "assistant",
+              content: response,
+            });
           }
         }
       })();

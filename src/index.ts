@@ -1,11 +1,17 @@
 import { createMemoryState } from "@chat-adapter/state-memory";
 import type { AnyTextAdapter } from "@tanstack/ai";
-import type { Adapter, StateAdapter, Thread } from "chat";
+import type {
+  Adapter,
+  ConcurrencyConfig,
+  ConcurrencyStrategy,
+  StateAdapter,
+  Thread,
+} from "chat";
 import { Chat } from "chat";
 import type { Config, PayloadHandler } from "payload";
 import { type Agent, createAgent } from "./agent.js";
+import type { RichTextMode } from "./tools.js";
 
-const TELEGRAM_STREAM_EDIT_INTERVAL_MS = 700;
 const TYPING_HEARTBEAT_MS = 4000;
 
 export interface PayloadAgentPluginConfig {
@@ -22,9 +28,28 @@ export interface PayloadAgentPluginConfig {
     /** Additional system prompt appended to the default */
     systemPrompt?: string;
   };
+  /**
+   * How concurrent messages on the same thread are handled. The default drops a
+   * message that arrives while another is being processed -- a problem for
+   * long-running agent replies. Use 'queue' to process them in order. Passed
+   * through to the underlying Chat instance.
+   */
+  concurrency?: ConcurrencyConfig | ConcurrencyStrategy;
   /** Disable the plugin without removing it from the config. */
   disabled?: boolean;
-  /** State adapter for subscriptions and deduplication. */
+  /**
+   * How richText (Lexical) fields are exchanged with the agent (default:
+   * 'markdown'). With 'markdown', the agent reads and writes Markdown and the
+   * plugin converts to and from Lexical editor state. With 'lexical', the agent
+   * works with raw Lexical editor state directly.
+   */
+  richText?: RichTextMode;
+  /**
+   * State adapter backing conversation history, subscriptions, locks, and
+   * deduplication. Defaults to in-memory, which does not persist across
+   * restarts or scale across instances. For production, pass a persistent
+   * adapter such as `@chat-adapter/state-redis` or `@chat-adapter/state-pg`.
+   */
   state?: StateAdapter;
 }
 
@@ -102,53 +127,6 @@ function startTypingHeartbeat(thread: Thread): () => void {
   };
 }
 
-async function streamPlainTextForTelegram(
-  thread: Thread,
-  stream: AsyncIterable<string>
-): Promise<void> {
-  const sent = await thread.post("Working on it...");
-
-  let accumulated = "";
-  let lastEditedText = "Working on it...";
-  let lastEditAt = 0;
-
-  const maybeEdit = async (force: boolean): Promise<void> => {
-    const nextText = accumulated.trimStart();
-
-    if (nextText.length === 0 || nextText === lastEditedText) {
-      return;
-    }
-
-    const now = Date.now();
-    if (!force && now - lastEditAt < TELEGRAM_STREAM_EDIT_INTERVAL_MS) {
-      return;
-    }
-
-    await sent.edit(nextText);
-    lastEditedText = nextText;
-    lastEditAt = now;
-  };
-
-  for await (const delta of stream) {
-    accumulated += delta;
-    await maybeEdit(false);
-  }
-
-  await maybeEdit(true);
-
-  const finalText = accumulated.trimStart();
-
-  if (finalText.length === 0 || finalText === lastEditedText) {
-    return;
-  }
-
-  try {
-    await sent.edit({ markdown: finalText });
-  } catch {
-    // keep plain text final edit if markdown parsing fails
-  }
-}
-
 function registerAgentHandlers(chatInstance: Chat, agent: Agent): void {
   const handleMessage = async (thread: Thread, text: string): Promise<void> => {
     const stopTyping = startTypingHeartbeat(thread);
@@ -156,11 +134,10 @@ function registerAgentHandlers(chatInstance: Chat, agent: Agent): void {
     try {
       const responseStream = agent.handleMessageStream(thread.id, text);
 
-      if (thread.adapter.name === "telegram") {
-        await streamPlainTextForTelegram(thread, responseStream);
-      } else {
-        await thread.post(responseStream);
-      }
+      // Chat SDK handles per-platform streaming natively: post+edit with
+      // throttled updates, markdown healing, and table buffering for Telegram,
+      // Discord, Google Chat, etc., and native streaming for Slack/Teams.
+      await thread.post(responseStream);
     } catch (error) {
       logHandlerError(thread, text, error);
 
@@ -195,6 +172,23 @@ function registerEchoHandlers(chatInstance: Chat): void {
   });
 }
 
+function resolveState(pluginOptions: PayloadAgentPluginConfig): StateAdapter {
+  if (pluginOptions.state) {
+    return pluginOptions.state;
+  }
+
+  if (process.env.NODE_ENV === "production") {
+    process.stderr.write(
+      "[payload-agent] No `state` adapter configured; using in-memory state. " +
+        "Conversation history, locks, and deduplication will not persist across " +
+        "restarts or scale across instances. For production, pass a persistent " +
+        "adapter such as @chat-adapter/state-redis or @chat-adapter/state-pg.\n"
+    );
+  }
+
+  return createMemoryState();
+}
+
 export const payloadAgentPlugin =
   (pluginOptions: PayloadAgentPluginConfig = {}) =>
   (config: Config): Config => {
@@ -208,11 +202,14 @@ export const payloadAgentPlugin =
       return config;
     }
 
+    const state = resolveState(pluginOptions);
+
     const chatInstance = new Chat({
       userName: "payload-agent",
       adapters,
-      state: pluginOptions.state ?? createMemoryState(),
+      concurrency: pluginOptions.concurrency,
       fallbackStreamingPlaceholderText: null,
+      state,
     });
 
     config.endpoints = [
@@ -240,6 +237,8 @@ export const payloadAgentPlugin =
           debug: pluginOptions.agent.debug,
           maxTokens: pluginOptions.agent.maxTokens,
           payload,
+          richText: pluginOptions.richText,
+          state,
           systemPrompt: pluginOptions.agent.systemPrompt,
         });
         registerAgentHandlers(chatInstance, agent);
