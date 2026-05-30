@@ -12,6 +12,7 @@ import {
 } from "./access.js";
 import { fileFromAttachment, fileFromUrl, type ResolvedFile } from "./media.js";
 import { markdownToRichText, richTextToMarkdown } from "./rich-text.js";
+import type { TypesProvider } from "./schema-types.js";
 
 /** Resolves an inbound chat attachment id to its registered attachment. */
 export type AttachmentResolver = (id: string) => Attachment | undefined;
@@ -32,6 +33,11 @@ export interface PayloadToolsOptions {
    * `overrideAccess: false` against this user; when absent, with full access.
    */
   serviceUser?: null | ServiceUser;
+  /**
+   * Provides each collection's generated TypeScript type, surfaced by getSchema
+   * so the agent writes `data` against real shapes (including block unions).
+   */
+  typesProvider?: null | TypesProvider;
 }
 
 /**
@@ -126,7 +132,7 @@ const writeLocaleInput = z
 const getSchemaDefinition = toolDefinition({
   name: "getSchema",
   description:
-    "Get the schema (field names and types) for one or all Payload CMS collections. Call this first to understand what data is available.",
+    "Get the schema for one or all Payload CMS collections. Call with a specific collection before creating or editing it: the result includes that collection's TypeScript type (with block unions) to build `data` against. Omit the collection to list all.",
   inputSchema: z.object({
     collection: z
       .string()
@@ -148,6 +154,7 @@ const getSchemaDefinition = toolDefinition({
             options: z.array(z.string()).optional(),
           })
         ),
+        types: z.string().optional(),
       })
     ),
   }),
@@ -293,7 +300,7 @@ export function createPayloadTools(
   options: PayloadToolsOptions = {}
 ): ServerTool[] {
   const richText = options.richText ?? "markdown";
-  const { resolveAttachment } = options;
+  const { resolveAttachment, typesProvider } = options;
   const localizationEnabled = Boolean(payload.config.localization);
   const accessible = resolveAccessibleCollections(
     payload.config.collections,
@@ -391,6 +398,10 @@ export function createPayloadTools(
           slug: item.slug,
           upload: item.upload ? true : undefined,
           fields: extractFields(item.fields),
+          types:
+            collection && typesProvider
+              ? (typesProvider.getCollectionType(item.slug) ?? undefined)
+              : undefined,
         })),
       };
     }),

@@ -153,6 +153,56 @@ describe("createPayloadTools operation scoping", () => {
   });
 });
 
+describe("createPayloadTools type grounding", () => {
+  const typesProvider = {
+    getCollectionType: (slug: string): null | string =>
+      slug === "posts" ? "type Post = { title: string };" : null,
+  };
+
+  const getSchema = async (
+    tools: unknown[],
+    args: Record<string, unknown>
+  ): Promise<{ collections: { types?: string }[] }> =>
+    (await getTool(tools, "getSchema").execute(args)) as {
+      collections: { types?: string }[];
+    };
+
+  test("getSchema includes the collection type when a provider is set", async () => {
+    const { payload } = stubPayload();
+    const tools = createPayloadTools(payload, {
+      richText: "lexical",
+      typesProvider,
+    });
+
+    const result = await getSchema(tools, { collection: "posts" });
+
+    expect(result.collections[0].types).toContain("type Post");
+  });
+
+  test("getSchema omits types when listing all collections", async () => {
+    const { payload } = stubPayload();
+    const tools = createPayloadTools(payload, {
+      richText: "lexical",
+      typesProvider,
+    });
+
+    const result = await getSchema(tools, {});
+
+    expect(result.collections.every((item) => item.types === undefined)).toBe(
+      true
+    );
+  });
+
+  test("getSchema omits types without a provider", async () => {
+    const { payload } = stubPayload();
+    const tools = createPayloadTools(payload, { richText: "lexical" });
+
+    const result = await getSchema(tools, { collection: "posts" });
+
+    expect(result.collections[0].types).toBeUndefined();
+  });
+});
+
 describe("createPayloadTools service user", () => {
   test("uses overrideAccess true and no user without a service user", async () => {
     const { find, payload } = stubPayload();

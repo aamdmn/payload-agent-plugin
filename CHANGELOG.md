@@ -15,6 +15,7 @@
 - Added SSRF protection to URL uploads: `uploadFile({ url })` only fetches http(s) URLs that resolve to publicly routable addresses (loopback, private, link-local, and cloud-metadata ranges are blocked), re-validates every redirect hop, and bounds the request with a timeout and a 25 MB size cap
 - Added `access.serviceUser` to make the agent act as a specific Payload user (by `{ collection, id }` or a resolver function). When set, every operation runs with `overrideAccess: false`, so Payload's own collection access, field-level access, and hooks apply. Without it the agent keeps full access, now with a production warning recommending you configure it
 - Added `access.authorize(ctx)` to gate which inbound chat messages the agent answers (`ctx` has `platform`, `threadId`, `userId`, `userName`, and the raw `message`/`thread`). It fails closed: a thrown gate refuses rather than allows. `access.unauthorizedMessage` customizes the refusal (set to `null` to stay silent)
+- Added type grounding: `getSchema` called with a specific collection now returns that collection's generated TypeScript (sliced from `payload-types.ts` via `config.typescript.outputFile`), including its block discriminated unions and referenced sub-interfaces, so the agent writes `data` against your real shapes. Falls back to the structural schema when the generated file is unavailable, with a startup hint to run `payload generate:types`
 
 - Added `handleMessageStream` method to agent for streaming responses via `AsyncIterable<string>`
 - Added typing heartbeat during agent message processing
