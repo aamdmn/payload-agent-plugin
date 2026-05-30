@@ -20,6 +20,7 @@
 - Added a production warning when no `state` adapter is configured (`NODE_ENV=production`), since in-memory state does not persist or scale across instances
 - Added localization support: when Payload `localization` is enabled, `find`, `findByID`, `create`, `update`, and `count` accept `locale` and `fallbackLocale`, the schema reports which fields are `localized`, and the agent is prompted with the available locales and the read-all/translate/write-per-locale workflow
 - Added per-locale richText conversion: a `locale: 'all'` read returns each localized richText field as a Markdown map keyed by locale, and writing a per-locale object to a richText field is rejected (it would corrupt the field) with a self-correcting error
+- Added media uploads: a `uploadFile` tool (exposed when an upload-enabled collection exists) saves a file the user attached in chat, or one fetched from a URL, to an upload collection. Inbound attachments are registered server-side and surfaced to the agent as an `attachmentId`, so file bytes never cross the Code Mode sandbox boundary. The file's type and extension are sniffed from its magic bytes when the platform omits them (e.g. Telegram photos), and the schema now reports `relationTo` so the agent can link an upload to a relationship field
 
 ### Changed
 

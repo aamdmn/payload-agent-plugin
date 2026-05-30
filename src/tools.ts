@@ -1,8 +1,20 @@
 import type { ServerTool } from "@tanstack/ai";
 import { toolDefinition } from "@tanstack/ai";
+import type { Attachment } from "chat";
 import type { BasePayload, Field, SelectType, Where } from "payload";
 import { z } from "zod";
+import { fileFromAttachment, fileFromUrl, type ResolvedFile } from "./media.js";
 import { markdownToRichText, richTextToMarkdown } from "./rich-text.js";
+
+/** Resolves an inbound chat attachment id to its registered attachment. */
+export type AttachmentResolver = (id: string) => Attachment | undefined;
+
+export interface PayloadToolsOptions {
+  /** Looks up a file the user attached in the current message, by id. */
+  resolveAttachment?: AttachmentResolver;
+  /** How richText fields are exchanged with the agent (default: 'markdown'). */
+  richText?: RichTextMode;
+}
 
 /**
  * How richText (Lexical) fields are exchanged with the agent.
@@ -16,6 +28,7 @@ interface FieldInfo {
   localized?: boolean;
   name: string;
   options?: string[];
+  relationTo?: string;
   required?: boolean;
   type: string;
 }
@@ -42,6 +55,10 @@ function extractFields(fields: Field[]): FieldInfo[] {
       info.options = field.options.map((option) =>
         typeof option === "string" ? option : option.value
       );
+    }
+
+    if ("relationTo" in field && typeof field.relationTo === "string") {
+      info.relationTo = field.relationTo;
     }
 
     result.push(info);
@@ -102,12 +119,14 @@ const getSchemaDefinition = toolDefinition({
     collections: z.array(
       z.object({
         slug: z.string(),
+        upload: z.boolean().optional(),
         fields: z.array(
           z.object({
             name: z.string(),
             type: z.string(),
             required: z.boolean().optional(),
             localized: z.boolean().optional(),
+            relationTo: z.string().optional(),
             options: z.array(z.string()).optional(),
           })
         ),
@@ -212,6 +231,31 @@ const countDefinition = toolDefinition({
   }),
 });
 
+const uploadFileDefinition = toolDefinition({
+  name: "uploadFile",
+  description:
+    "Upload a file to a Payload upload collection (e.g. media). Provide either attachmentId (a file the user attached in this message) or url (to fetch the file from). Returns the created document; use its id in upload or relationship fields.",
+  inputSchema: z.object({
+    collection: z
+      .string()
+      .describe("Upload-enabled collection slug (e.g. media)"),
+    attachmentId: z
+      .string()
+      .optional()
+      .describe("Id of a file the user attached in this message"),
+    url: z
+      .string()
+      .optional()
+      .describe("URL to fetch the file from (alternative to attachmentId)"),
+    data: z
+      .record(z.string(), z.unknown())
+      .optional()
+      .describe("Other document fields, e.g. { alt: 'A red bicycle' }"),
+    locale: writeLocaleInput,
+  }),
+  outputSchema: z.record(z.string(), z.unknown()),
+});
+
 // biome-ignore lint/suspicious/noExplicitAny: Payload's collection slug type requires generic inference
 type AnyCollection = any;
 
@@ -228,9 +272,36 @@ function getCollectionFields(
 
 export function createPayloadTools(
   payload: BasePayload,
-  richText: RichTextMode = "markdown"
+  options: PayloadToolsOptions = {}
 ): ServerTool[] {
+  const richText = options.richText ?? "markdown";
+  const { resolveAttachment } = options;
   const localizationEnabled = Boolean(payload.config.localization);
+  const hasUploadCollections = payload.config.collections.some((item) =>
+    Boolean(item.upload)
+  );
+
+  // Resolve a file to upload from either a registered chat attachment or a URL.
+  const resolveFile = (
+    attachmentId?: string,
+    url?: string
+  ): Promise<ResolvedFile> => {
+    if (attachmentId) {
+      const attachment = resolveAttachment?.(attachmentId);
+      if (!attachment) {
+        throw new Error(
+          `No attachment with id "${attachmentId}" in this message`
+        );
+      }
+      return fileFromAttachment(attachment);
+    }
+
+    if (url) {
+      return fileFromUrl(url);
+    }
+
+    throw new Error("Provide either attachmentId or url to upload a file");
+  };
 
   // Only forward locale options when localization is configured. Payload
   // normalizes a `fallbackLocale` of 'false'/'none'/'null' to no fallback.
@@ -278,7 +349,7 @@ export function createPayloadTools(
     }
   };
 
-  return [
+  const tools = [
     getSchemaDefinition.server(({ collection }) => {
       const collections = collection
         ? payload.config.collections.filter((item) => item.slug === collection)
@@ -287,6 +358,7 @@ export function createPayloadTools(
       return {
         collections: collections.map((item) => ({
           slug: item.slug,
+          upload: item.upload ? true : undefined,
           fields: extractFields(item.fields),
         })),
       };
@@ -447,6 +519,43 @@ export function createPayloadTools(
       }
     }),
   ] as ServerTool[];
+
+  // Only expose uploadFile when at least one upload-enabled collection exists.
+  if (hasUploadCollections) {
+    tools.push(
+      uploadFileDefinition.server(
+        async ({ collection, attachmentId, url, data, locale }) => {
+          try {
+            const file = await resolveFile(attachmentId, url);
+
+            const doc = await payload.create({
+              collection: collection as AnyCollection,
+              data: data ?? {},
+              file,
+              ...localeArgs(locale),
+              overrideAccess: true,
+            });
+
+            const result = doc as Record<string, unknown>;
+            await decodeRichText(collection, result);
+            return result;
+          } catch (error) {
+            throwPayloadToolError(
+              "uploadFile",
+              {
+                collection,
+                hasAttachment: Boolean(attachmentId),
+                hasUrl: Boolean(url),
+              },
+              error
+            );
+          }
+        }
+      ) as ServerTool
+    );
+  }
+
+  return tools;
 }
 
 export function buildSchemaDescription(
@@ -473,6 +582,10 @@ export function buildSchemaDescription(
           description += ", markdown";
         }
 
+        if (field.relationTo) {
+          description += ` -> ${field.relationTo}`;
+        }
+
         if (field.options) {
           description += `, options: ${field.options.join(" | ")}`;
         }
@@ -482,7 +595,8 @@ export function buildSchemaDescription(
       })
       .join(", ");
 
-    lines.push(`- ${collection.slug}: ${fieldDescriptions}`);
+    const uploadMarker = collection.upload ? " (upload collection)" : "";
+    lines.push(`- ${collection.slug}${uploadMarker}: ${fieldDescriptions}`);
   }
 
   return lines.join("\n");

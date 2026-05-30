@@ -2,6 +2,7 @@ import { createMemoryState } from "@chat-adapter/state-memory";
 import type { AnyTextAdapter } from "@tanstack/ai";
 import type {
   Adapter,
+  Attachment,
   ConcurrencyConfig,
   ConcurrencyStrategy,
   StateAdapter,
@@ -128,11 +129,19 @@ function startTypingHeartbeat(thread: Thread): () => void {
 }
 
 function registerAgentHandlers(chatInstance: Chat, agent: Agent): void {
-  const handleMessage = async (thread: Thread, text: string): Promise<void> => {
+  const handleMessage = async (
+    thread: Thread,
+    text: string,
+    attachments?: Attachment[]
+  ): Promise<void> => {
     const stopTyping = startTypingHeartbeat(thread);
 
     try {
-      const responseStream = agent.handleMessageStream(thread.id, text);
+      const responseStream = agent.handleMessageStream(
+        thread.id,
+        text,
+        attachments
+      );
 
       // Chat SDK handles per-platform streaming natively: post+edit with
       // throttled updates, markdown healing, and table buffering for Telegram,
@@ -154,11 +163,11 @@ function registerAgentHandlers(chatInstance: Chat, agent: Agent): void {
   };
 
   chatInstance.onDirectMessage(async (thread, message) => {
-    await handleMessage(thread, message.text);
+    await handleMessage(thread, message.text, message.attachments);
   });
 
   chatInstance.onNewMention(async (thread, message) => {
-    await handleMessage(thread, message.text);
+    await handleMessage(thread, message.text, message.attachments);
   });
 }
 
