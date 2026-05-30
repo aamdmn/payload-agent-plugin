@@ -106,6 +106,26 @@ payloadAgentPlugin({
 - [ ] **Observability** — structured logs / metrics for turns, tool calls,
       errors, cost. (Low–Med, M)
 
+## Content copilot (north-star epic)
+
+Make the agent genuinely useful for building and localizing products and pages
+in a real headless ecommerce. Build order agreed 2026-05-30.
+
+- [x] **Type grounding** — `getSchema('collection')` returns that collection's
+      generated TypeScript (sliced from `payload-types.ts`), including block
+      unions, so the agent writes `data` against real shapes. Structural
+      fallback when the file is absent. (High, M)
+- [ ] **Bulk catalog ops (flagship)** — mass localize / reprice / audit across
+      the catalog via Code Mode loops; guidance and recipes. (High, M)
+- [ ] **Block-targeted editing** — update / insert / move / remove one block by
+      id within a blocks field, so edits don't rewrite the whole array. (High, M)
+- [ ] **Preview links** — return an admin-edit / preview URL after each write.
+      (Med, S)
+- [ ] **Draft-first writes** — land big creates/edits as drafts, publish on
+      confirm. (Med, M)
+- [ ] **Vision input** (deferred) — let the agent see uploaded photos to draft
+      copy and alt text; a separate multimodal capability. (Med, M–L)
+
 ---
 
 ## Quick wins (highest ROI, ship first)

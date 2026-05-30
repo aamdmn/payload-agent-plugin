@@ -7,7 +7,7 @@ import { lexicalEditor } from "@payloadcms/richtext-lexical";
 // import { anthropicText } from "@tanstack/ai-anthropic";
 import { openaiText } from "@tanstack/ai-openai";
 
-import { buildConfig } from "payload";
+import { type Block, buildConfig } from "payload";
 import { payloadAgentPlugin } from "payload-agent-plugin";
 import sharp from "sharp";
 
@@ -25,6 +25,64 @@ const adapters: Record<string, ReturnType<typeof createTelegramAdapter>> = {};
 if (process.env.TELEGRAM_BOT_TOKEN) {
   adapters.telegram = createTelegramAdapter({ mode: "polling" });
 }
+
+// Shared layout blocks, reused by `products` and `pages`. `interfaceName` makes
+// Payload generate a named interface for each, so the agent (and the type
+// slicer) see a real discriminated union on `blockType`.
+const heroBlock = {
+  slug: "hero",
+  interfaceName: "HeroBlock",
+  fields: [
+    { name: "heading", type: "text", required: true, localized: true },
+    { name: "subheading", type: "text", localized: true },
+    { name: "image", type: "upload", relationTo: "media" },
+    {
+      name: "cta",
+      type: "group",
+      fields: [
+        { name: "label", type: "text", localized: true },
+        { name: "url", type: "text" },
+      ],
+    },
+  ],
+} satisfies Block;
+
+const featureGridBlock = {
+  slug: "featureGrid",
+  interfaceName: "FeatureGridBlock",
+  fields: [
+    { name: "heading", type: "text", localized: true },
+    {
+      name: "products",
+      type: "relationship",
+      relationTo: "products",
+      hasMany: true,
+    },
+  ],
+} satisfies Block;
+
+const galleryBlock = {
+  slug: "gallery",
+  interfaceName: "GalleryBlock",
+  fields: [
+    {
+      name: "images",
+      type: "array",
+      fields: [
+        { name: "image", type: "upload", relationTo: "media" },
+        { name: "alt", type: "text", localized: true },
+      ],
+    },
+  ],
+} satisfies Block;
+
+const richTextBlock = {
+  slug: "richText",
+  interfaceName: "RichTextBlock",
+  fields: [{ name: "content", type: "richText", localized: true }],
+} satisfies Block;
+
+const layoutBlocks = [heroBlock, featureGridBlock, galleryBlock, richTextBlock];
 
 export default buildConfig({
   admin: {
@@ -55,6 +113,105 @@ export default buildConfig({
         staticDir: path.resolve(dirname, "media"),
       },
     },
+    {
+      slug: "categories",
+      admin: { useAsTitle: "title" },
+      fields: [
+        { name: "title", type: "text", required: true, localized: true },
+        { name: "slug", type: "text" },
+      ],
+    },
+    {
+      slug: "products",
+      admin: { useAsTitle: "title" },
+      fields: [
+        {
+          type: "tabs",
+          tabs: [
+            {
+              label: "Content",
+              fields: [
+                {
+                  name: "title",
+                  type: "text",
+                  required: true,
+                  localized: true,
+                },
+                { name: "description", type: "richText", localized: true },
+                {
+                  name: "status",
+                  type: "select",
+                  options: ["draft", "published", "archived"],
+                  defaultValue: "draft",
+                },
+                {
+                  name: "categories",
+                  type: "relationship",
+                  relationTo: "categories",
+                  hasMany: true,
+                },
+              ],
+            },
+            {
+              label: "Pricing",
+              fields: [
+                {
+                  name: "prices",
+                  type: "array",
+                  labels: { singular: "Price", plural: "Prices" },
+                  fields: [
+                    {
+                      name: "currency",
+                      type: "select",
+                      options: ["USD", "EUR", "GBP"],
+                      required: true,
+                    },
+                    { name: "amount", type: "number", required: true },
+                  ],
+                },
+              ],
+            },
+            {
+              label: "Variants",
+              fields: [
+                {
+                  name: "variants",
+                  type: "array",
+                  fields: [
+                    { name: "name", type: "text" },
+                    { name: "sku", type: "text" },
+                    { name: "stock", type: "number", defaultValue: 0 },
+                  ],
+                },
+              ],
+            },
+            {
+              name: "seo",
+              fields: [
+                { name: "metaTitle", type: "text", localized: true },
+                { name: "metaDescription", type: "textarea", localized: true },
+                { name: "ogImage", type: "upload", relationTo: "media" },
+              ],
+            },
+            {
+              label: "Layout",
+              fields: [
+                { name: "layout", type: "blocks", blocks: layoutBlocks },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+    {
+      slug: "pages",
+      admin: { useAsTitle: "title" },
+      fields: [
+        { name: "title", type: "text", required: true, localized: true },
+        { name: "slug", type: "text", required: true },
+        { name: "layout", type: "blocks", blocks: layoutBlocks },
+      ],
+    },
   ],
   db: sqliteAdapter({
     client: {
@@ -84,11 +241,16 @@ export default buildConfig({
       // }),
       ...(process.env.OPENAI_API_KEY && {
         agent: {
-          adapter: openaiText("gpt-5.4-mini"),
+          adapter: openaiText("gpt-5.5"),
           debug: true,
           maxTokens: 20_000,
           systemPrompt:
             "Be concise and practical, do not use emojis, be direct and human. all lowecase, short sentences.",
+        },
+        access: {
+          operations: {
+            delete: true,
+          },
         },
       }),
     }),

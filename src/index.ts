@@ -18,6 +18,7 @@ import {
   runAuthorize,
 } from "./access.js";
 import { type Agent, createAgent } from "./agent.js";
+import { loadGeneratedTypes } from "./schema-types.js";
 import type { RichTextMode } from "./tools.js";
 
 export type {
@@ -312,6 +313,13 @@ export const payloadAgentPlugin =
           );
         }
 
+        const typesProvider = await loadGeneratedTypes(payload);
+        if (!typesProvider) {
+          process.stderr.write(
+            "[payload-agent] Generated types not found; the agent will use the structural schema. Run `payload generate:types` so it can build `data` against your real types (including blocks).\n"
+          );
+        }
+
         const agent = createAgent({
           access: pluginOptions.access,
           adapter: pluginOptions.agent.adapter,
@@ -322,6 +330,7 @@ export const payloadAgentPlugin =
           serviceUser,
           state,
           systemPrompt: pluginOptions.agent.systemPrompt,
+          typesProvider,
         });
 
         const unauthorizedMessage =
