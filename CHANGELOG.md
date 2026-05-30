@@ -5,8 +5,16 @@
 ### Breaking Changes
 
 - Removed `timeout` and `memoryLimit` from agent config. Use `maxTokens` instead.
+- The agent now denies Payload's internal (`payload-*`) and auth-enabled collections by default. Re-expose any it should manage with `access.collections.allow`, e.g. `access: { collections: { allow: ['users'] } }`
+- The agent no longer deletes documents by default. Enable it with `access: { operations: { delete: true } }`
 
 ### Added
+
+- Added `access.collections` option (`allow` / `deny`) to scope which collections the agent can read or write. By default internal (`payload-*`) and auth-enabled collections are denied; getSchema, the prompt schema, and every operation are filtered to the accessible set, and `uploadFile` is exposed only when an accessible upload collection exists
+- Added `access.operations` option (`create` / `update` / `delete`) to control which write operations the agent can perform. `delete` is off by default; `create` and `update` are on. A disabled operation's tool is not exposed to the agent at all, and `uploadFile` is governed by `create`
+- Added SSRF protection to URL uploads: `uploadFile({ url })` only fetches http(s) URLs that resolve to publicly routable addresses (loopback, private, link-local, and cloud-metadata ranges are blocked), re-validates every redirect hop, and bounds the request with a timeout and a 25 MB size cap
+- Added `access.serviceUser` to make the agent act as a specific Payload user (by `{ collection, id }` or a resolver function). When set, every operation runs with `overrideAccess: false`, so Payload's own collection access, field-level access, and hooks apply. Without it the agent keeps full access, now with a production warning recommending you configure it
+- Added `access.authorize(ctx)` to gate which inbound chat messages the agent answers (`ctx` has `platform`, `threadId`, `userId`, `userName`, and the raw `message`/`thread`). It fails closed: a thrown gate refuses rather than allows. `access.unauthorizedMessage` customizes the refusal (set to `null` to stay silent)
 
 - Added `handleMessageStream` method to agent for streaming responses via `AsyncIterable<string>`
 - Added typing heartbeat during agent message processing

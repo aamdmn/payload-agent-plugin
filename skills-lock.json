@@ -7,9 +7,10 @@
       "computedHash": "856702cc74bbd5e8d02115b9c5505426e08e3af395ea3f12bfde9e673b7ae22e"
     },
     "payload": {
-      "source": "payloadcms/skills",
+      "source": "payloadcms/payload",
       "sourceType": "github",
-      "computedHash": "868c518cec5efe3862accee8ef3751b72fac06d7e12a27c263dc17320f27b20c"
+      "skillPath": "tools/claude-plugin/skills/payload/SKILL.md",
+      "computedHash": "580a7f579df2e9821dd65011098f7547e94c769f006a8fd5f62083b48abc4b80"
     }
   }
 }

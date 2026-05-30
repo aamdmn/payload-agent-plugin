@@ -1,4 +1,4 @@
-# Payload Access Control Reference
+# Payload CMS Access Control Reference
 
 Complete reference for access control patterns across collections, fields, and globals.
 
