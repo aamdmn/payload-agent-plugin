@@ -13,9 +13,9 @@ Powered by [Chat SDK](https://www.npmjs.com/package/chat) for multi-platform mes
 
 ## Status
 
-**Work in progress.** The core agent loop, chat integrations, content operations, rich text, and localization work. Several areas are not yet implemented:
+**Work in progress.** The core agent loop, chat integrations, content operations, rich text, localization, and media uploads work. Not yet implemented:
 
-- Media management (uploads, image handling)
+- Outbound media (the agent sending files back to chat)
 - Folder handling
 
 ## Quick Start
@@ -55,6 +55,7 @@ Set your API keys in environment variables and start chatting with your bot.
 | `update` | Partial update a document |
 | `delete` | Delete a document |
 | `count` | Count documents matching a filter |
+| `uploadFile` | Upload a file (a chat attachment or a URL) to an upload collection |
 
 The agent runs TypeScript through Code Mode, so it can compose multi-step operations in a single turn (e.g. find, filter in code, then create a summary document).
 
@@ -76,6 +77,21 @@ content. A request like "translate post 5 into Spanish and German" becomes:
 Localized fields are written one locale per call with plain values — the plugin
 rejects a per-locale object on write (a common mistake that would otherwise
 corrupt the field) with a message the agent can recover from.
+
+## Media
+
+When a collection has an `upload` config, the agent gets a `uploadFile` tool.
+A user can send a photo or file in chat and ask the agent to save it:
+
+1. Inbound chat attachments are registered server-side and surfaced to the
+   agent as an `attachmentId` (the file bytes never enter the Code Mode
+   sandbox).
+2. The agent calls `uploadFile({ collection, attachmentId, data })`, and the
+   plugin fetches the bytes and creates the upload document.
+3. The returned id can be referenced from upload or relationship fields in a
+   follow-up `create`/`update`.
+
+`uploadFile` can also fetch from a `url` instead of an attachment.
 
 ## Configuration
 

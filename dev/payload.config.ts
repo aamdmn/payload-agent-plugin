@@ -38,6 +38,7 @@ export default buildConfig({
       fields: [
         { name: "title", type: "text", required: true },
         { name: "summary", type: "text", localized: true },
+        { name: "heroImage", type: "upload", relationTo: "media" },
         {
           name: "status",
           type: "select",

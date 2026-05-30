@@ -1,8 +1,9 @@
+import { randomUUID } from "node:crypto";
 import type { AnyTextAdapter, StreamChunk } from "@tanstack/ai";
 import { chat, maxIterations } from "@tanstack/ai";
 import { createCodeMode } from "@tanstack/ai-code-mode";
 import { createNodeIsolateDriver } from "@tanstack/ai-isolate-node";
-import type { StateAdapter } from "chat";
+import type { Attachment, StateAdapter } from "chat";
 import type { BasePayload } from "payload";
 import { createConversationHistory } from "./conversation-history.js";
 import { loggingMiddleware } from "./logger.js";
@@ -36,10 +37,15 @@ export interface AgentConfig {
 }
 
 export interface Agent {
-  handleMessage: (threadId: string, text: string) => Promise<string>;
+  handleMessage: (
+    threadId: string,
+    text: string,
+    attachments?: Attachment[]
+  ) => Promise<string>;
   handleMessageStream: (
     threadId: string,
-    text: string
+    text: string,
+    attachments?: Attachment[]
   ) => AsyncIterable<string>;
 }
 
@@ -229,7 +235,51 @@ function extractStreamText(
 
 export function createAgent(config: AgentConfig): Agent {
   const richTextMode = config.richText ?? "markdown";
-  const tools = createPayloadTools(config.payload, richTextMode);
+
+  // Files the user attached in the message currently being handled, keyed by a
+  // short id. Registered per turn and released when the turn finishes; the
+  // upload tool resolves bytes from here because Code Mode cannot pass binary
+  // data through the sandbox boundary.
+  const pendingAttachments = new Map<string, Attachment>();
+  const resolveAttachment = (id: string): Attachment | undefined =>
+    pendingAttachments.get(id);
+
+  const registerAttachments = (
+    attachments: Attachment[] | undefined
+  ): { ids: string[]; prompt: string } => {
+    if (!attachments || attachments.length === 0) {
+      return { ids: [], prompt: "" };
+    }
+
+    const ids: string[] = [];
+    const lines: string[] = [];
+    for (const attachment of attachments) {
+      const id = `att_${randomUUID().slice(0, 8)}`;
+      pendingAttachments.set(id, attachment);
+      ids.push(id);
+      lines.push(
+        `- attachmentId "${id}": ${attachment.type} "${attachment.name ?? "file"}" (${attachment.mimeType ?? "unknown type"})`
+      );
+    }
+
+    const prompt = [
+      "The user attached the following file(s) in this message. To save one, call uploadFile with its attachmentId and a target upload collection:",
+      ...lines,
+    ].join("\n");
+
+    return { ids, prompt };
+  };
+
+  const releaseAttachments = (ids: string[]): void => {
+    for (const id of ids) {
+      pendingAttachments.delete(id);
+    }
+  };
+
+  const tools = createPayloadTools(config.payload, {
+    resolveAttachment,
+    richText: richTextMode,
+  });
   const driver = createNodeIsolateDriver();
 
   const { systemPrompt: codeModePrompt, tool: codeModeTool } = createCodeMode({
@@ -255,6 +305,13 @@ export function createAgent(config: AgentConfig): Agent {
       ].join("\n")
     : "";
 
+  const hasUploadCollections = config.payload.config.collections.some((item) =>
+    Boolean(item.upload)
+  );
+  const uploadGuidance = hasUploadCollections
+    ? "When the user attaches a file you will be given its attachmentId. Save it with uploadFile to an upload collection, then reference the returned document id in upload or relationship fields. uploadFile can also fetch from a url."
+    : "";
+
   const baseSystemPrompt = [
     "You are a Payload CMS assistant. Help users query and manage their content.",
     "",
@@ -265,6 +322,7 @@ export function createAgent(config: AgentConfig): Agent {
     "When calling find/findByID, use the select option to fetch only fields you need.",
     richTextGuidance,
     localeGuidance,
+    uploadGuidance,
     "Keep responses concise and practical.",
     config.systemPrompt ?? "",
   ]
@@ -289,30 +347,47 @@ export function createAgent(config: AgentConfig): Agent {
   const history = createConversationHistory(config.state);
 
   return {
-    async handleMessage(threadId: string, text: string): Promise<string> {
+    async handleMessage(
+      threadId: string,
+      text: string,
+      attachments?: Attachment[]
+    ): Promise<string> {
       await history.append(threadId, { role: "user", content: text });
       const messages = await history.get(threadId);
+      const { ids, prompt } = registerAttachments(attachments);
 
-      const response = await chat({
-        adapter: config.adapter,
-        agentLoopStrategy: maxIterations(MAX_AGENT_ITERATIONS),
-        maxTokens,
-        messages,
-        middleware,
-        stream: false,
-        systemPrompts,
-        tools: [codeModeTool],
-      });
+      try {
+        const response = await chat({
+          adapter: config.adapter,
+          agentLoopStrategy: maxIterations(MAX_AGENT_ITERATIONS),
+          maxTokens,
+          messages,
+          middleware,
+          stream: false,
+          systemPrompts: prompt ? [...systemPrompts, prompt] : systemPrompts,
+          tools: [codeModeTool],
+        });
 
-      await history.append(threadId, { role: "assistant", content: response });
+        await history.append(threadId, {
+          role: "assistant",
+          content: response,
+        });
 
-      return response;
+        return response;
+      } finally {
+        releaseAttachments(ids);
+      }
     },
 
-    handleMessageStream(threadId: string, text: string): AsyncIterable<string> {
+    handleMessageStream(
+      threadId: string,
+      text: string,
+      attachments?: Attachment[]
+    ): AsyncIterable<string> {
       return (async function* () {
         await history.append(threadId, { role: "user", content: text });
         const messages = await history.get(threadId);
+        const { ids, prompt } = registerAttachments(attachments);
 
         const rawStream = chat({
           adapter: config.adapter,
@@ -320,7 +395,7 @@ export function createAgent(config: AgentConfig): Agent {
           maxTokens,
           messages,
           middleware,
-          systemPrompts,
+          systemPrompts: prompt ? [...systemPrompts, prompt] : systemPrompts,
           tools: [codeModeTool],
         }) as AsyncIterable<StreamChunk>;
 
@@ -339,6 +414,7 @@ export function createAgent(config: AgentConfig): Agent {
 
           completed = true;
         } finally {
+          releaseAttachments(ids);
           if (completed) {
             await history.append(threadId, {
               role: "assistant",
