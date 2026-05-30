@@ -3,6 +3,13 @@ import { toolDefinition } from "@tanstack/ai";
 import type { Attachment } from "chat";
 import type { BasePayload, Field, SelectType, Where } from "payload";
 import { z } from "zod";
+import {
+  type AccessControlConfig,
+  assertCollectionAllowed,
+  resolveAccessibleCollections,
+  resolveOperations,
+  type ServiceUser,
+} from "./access.js";
 import { fileFromAttachment, fileFromUrl, type ResolvedFile } from "./media.js";
 import { markdownToRichText, richTextToMarkdown } from "./rich-text.js";
 
@@ -10,10 +17,21 @@ import { markdownToRichText, richTextToMarkdown } from "./rich-text.js";
 export type AttachmentResolver = (id: string) => Attachment | undefined;
 
 export interface PayloadToolsOptions {
+  /**
+   * Restricts which collections the agent can read or write. getSchema and
+   * every operation are scoped to the resulting set. Defaults to secure
+   * behavior: internal (`payload-*`) and auth collections are denied.
+   */
+  access?: AccessControlConfig;
   /** Looks up a file the user attached in the current message, by id. */
   resolveAttachment?: AttachmentResolver;
   /** How richText fields are exchanged with the agent (default: 'markdown'). */
   richText?: RichTextMode;
+  /**
+   * The resolved Payload user the agent acts as. When set, operations run with
+   * `overrideAccess: false` against this user; when absent, with full access.
+   */
+  serviceUser?: null | ServiceUser;
 }
 
 /**
@@ -277,9 +295,19 @@ export function createPayloadTools(
   const richText = options.richText ?? "markdown";
   const { resolveAttachment } = options;
   const localizationEnabled = Boolean(payload.config.localization);
-  const hasUploadCollections = payload.config.collections.some((item) =>
-    Boolean(item.upload)
+  const accessible = resolveAccessibleCollections(
+    payload.config.collections,
+    options.access
   );
+  const hasUploadCollections = payload.config.collections.some(
+    (item) => accessible.has(item.slug) && Boolean(item.upload)
+  );
+
+  // With a service user, enforce Payload access control against it; otherwise
+  // fall back to full access (still bounded by collection/operation scoping).
+  const accessArgs = options.serviceUser
+    ? { overrideAccess: false, user: options.serviceUser }
+    : { overrideAccess: true };
 
   // Resolve a file to upload from either a registered chat attachment or a URL.
   const resolveFile = (
@@ -351,9 +379,12 @@ export function createPayloadTools(
 
   const tools = [
     getSchemaDefinition.server(({ collection }) => {
-      const collections = collection
-        ? payload.config.collections.filter((item) => item.slug === collection)
-        : payload.config.collections;
+      const collections = payload.config.collections.filter((item) => {
+        if (!accessible.has(item.slug)) {
+          return false;
+        }
+        return collection ? item.slug === collection : true;
+      });
 
       return {
         collections: collections.map((item) => ({
@@ -375,6 +406,7 @@ export function createPayloadTools(
         locale,
         fallbackLocale,
       }) => {
+        assertCollectionAllowed(collection, accessible);
         try {
           const result = await payload.find({
             collection: collection as AnyCollection,
@@ -384,7 +416,7 @@ export function createPayloadTools(
             sort,
             select: select as SelectType | undefined,
             ...localeArgs(locale, fallbackLocale),
-            overrideAccess: true,
+            ...accessArgs,
           });
 
           const docs = result.docs as Record<string, unknown>[];
@@ -417,13 +449,14 @@ export function createPayloadTools(
 
     findByIDDefinition.server(
       async ({ collection, id, select, locale, fallbackLocale }) => {
+        assertCollectionAllowed(collection, accessible);
         try {
           const doc = await payload.findByID({
             collection: collection as AnyCollection,
             id,
             select: select as SelectType | undefined,
             ...localeArgs(locale, fallbackLocale),
-            overrideAccess: true,
+            ...accessArgs,
           });
 
           const result = doc as Record<string, unknown>;
@@ -440,6 +473,7 @@ export function createPayloadTools(
     ),
 
     createDefinition.server(async ({ collection, data, locale }) => {
+      assertCollectionAllowed(collection, accessible);
       try {
         await encodeRichText(collection, data);
 
@@ -447,7 +481,7 @@ export function createPayloadTools(
           collection: collection as AnyCollection,
           data,
           ...localeArgs(locale),
-          overrideAccess: true,
+          ...accessArgs,
         });
 
         const result = doc as Record<string, unknown>;
@@ -463,6 +497,7 @@ export function createPayloadTools(
     }),
 
     updateDefinition.server(async ({ collection, id, data, locale }) => {
+      assertCollectionAllowed(collection, accessible);
       try {
         await encodeRichText(collection, data);
 
@@ -471,7 +506,7 @@ export function createPayloadTools(
           id,
           data,
           ...localeArgs(locale),
-          overrideAccess: true,
+          ...accessArgs,
         });
 
         const result = doc as Record<string, unknown>;
@@ -487,11 +522,12 @@ export function createPayloadTools(
     }),
 
     deleteDocDefinition.server(async ({ collection, id }) => {
+      assertCollectionAllowed(collection, accessible);
       try {
         const doc = await payload.delete({
           collection: collection as AnyCollection,
           id,
-          overrideAccess: true,
+          ...accessArgs,
         });
 
         return doc as Record<string, unknown>;
@@ -501,12 +537,13 @@ export function createPayloadTools(
     }),
 
     countDefinition.server(async ({ collection, where, locale }) => {
+      assertCollectionAllowed(collection, accessible);
       try {
         const result = await payload.count({
           collection: collection as AnyCollection,
           where: where as Where | undefined,
           ...localeArgs(locale),
-          overrideAccess: true,
+          ...accessArgs,
         });
 
         return { totalDocs: result.totalDocs };
@@ -525,6 +562,7 @@ export function createPayloadTools(
     tools.push(
       uploadFileDefinition.server(
         async ({ collection, attachmentId, url, data, locale }) => {
+          assertCollectionAllowed(collection, accessible);
           try {
             const file = await resolveFile(attachmentId, url);
 
@@ -533,7 +571,7 @@ export function createPayloadTools(
               data: data ?? {},
               file,
               ...localeArgs(locale),
-              overrideAccess: true,
+              ...accessArgs,
             });
 
             const result = doc as Record<string, unknown>;
@@ -555,16 +593,40 @@ export function createPayloadTools(
     );
   }
 
-  return tools;
+  // Drop the tools for disabled write operations so the agent never sees them.
+  // Reads stay; delete is off unless explicitly enabled. uploadFile is a create.
+  const operations = resolveOperations(options.access);
+  const disabledTools = new Set<string>();
+  if (!operations.create) {
+    disabledTools.add("create");
+    disabledTools.add("uploadFile");
+  }
+  if (!operations.update) {
+    disabledTools.add("update");
+  }
+  if (!operations.delete) {
+    disabledTools.add("deleteDoc");
+  }
+
+  return tools.filter((tool) => !disabledTools.has(tool.name));
 }
 
 export function buildSchemaDescription(
   payload: BasePayload,
-  richText: RichTextMode = "markdown"
+  richText: RichTextMode = "markdown",
+  access?: AccessControlConfig
 ): string {
   const lines: string[] = [];
+  const accessible = resolveAccessibleCollections(
+    payload.config.collections,
+    access
+  );
 
   for (const collection of payload.config.collections) {
+    if (!accessible.has(collection.slug)) {
+      continue;
+    }
+
     const fields = extractFields(collection.fields);
     const fieldDescriptions = fields
       .map((field) => {

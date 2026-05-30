@@ -5,17 +5,44 @@ import type {
   Attachment,
   ConcurrencyConfig,
   ConcurrencyStrategy,
+  Message,
   StateAdapter,
   Thread,
 } from "chat";
 import { Chat } from "chat";
 import type { Config, PayloadHandler } from "payload";
+import {
+  type AccessControlConfig,
+  type Authorize,
+  resolveServiceUser,
+  runAuthorize,
+} from "./access.js";
 import { type Agent, createAgent } from "./agent.js";
 import type { RichTextMode } from "./tools.js";
 
+export type {
+  AccessControlConfig,
+  Authorize,
+  AuthorizeContext,
+  CollectionAccessConfig,
+  OperationAccessConfig,
+  ServiceUser,
+  ServiceUserConfig,
+} from "./access.js";
+
 const TYPING_HEARTBEAT_MS = 4000;
+const DEFAULT_UNAUTHORIZED_MESSAGE =
+  "Sorry, you are not authorized to use this assistant.";
 
 export interface PayloadAgentPluginConfig {
+  /**
+   * Restricts which collections the agent can read or write. By default the
+   * agent can access every collection except Payload's internal collections
+   * (slugs starting with `payload-`) and auth-enabled collections (which hold
+   * credentials and sessions). Use `access.collections.allow` to expose a
+   * specific set, or `access.collections.deny` to remove more.
+   */
+  access?: AccessControlConfig;
   /** Chat platform adapters (e.g. telegram, slack, whatsapp). */
   adapters?: Record<string, Adapter>;
   /** AI agent configuration. */
@@ -128,7 +155,12 @@ function startTypingHeartbeat(thread: Thread): () => void {
   };
 }
 
-function registerAgentHandlers(chatInstance: Chat, agent: Agent): void {
+function registerAgentHandlers(
+  chatInstance: Chat,
+  agent: Agent,
+  authorize: Authorize | undefined,
+  unauthorizedMessage: null | string
+): void {
   const handleMessage = async (
     thread: Thread,
     text: string,
@@ -162,12 +194,40 @@ function registerAgentHandlers(chatInstance: Chat, agent: Agent): void {
     }
   };
 
-  chatInstance.onDirectMessage(async (thread, message) => {
+  const handleIfAuthorized = async (
+    thread: Thread,
+    message: Message
+  ): Promise<void> => {
+    const result = await runAuthorize(authorize, {
+      message,
+      platform: thread.adapter.name,
+      thread,
+      threadId: thread.id,
+      userId: message.author.userId,
+      userName: message.author.userName,
+    });
+
+    if (result.status === "error") {
+      logHandlerError(thread, message.text, result.error);
+      return;
+    }
+
+    if (result.status === "deny") {
+      if (unauthorizedMessage) {
+        await thread.post(unauthorizedMessage).catch(() => undefined);
+      }
+      return;
+    }
+
     await handleMessage(thread, message.text, message.attachments);
+  };
+
+  chatInstance.onDirectMessage(async (thread, message) => {
+    await handleIfAuthorized(thread, message);
   });
 
   chatInstance.onNewMention(async (thread, message) => {
-    await handleMessage(thread, message.text, message.attachments);
+    await handleIfAuthorized(thread, message);
   });
 }
 
@@ -241,16 +301,39 @@ export const payloadAgentPlugin =
       await existingOnInit?.(payload);
 
       if (pluginOptions.agent) {
+        const serviceUser = await resolveServiceUser(
+          payload,
+          pluginOptions.access
+        );
+
+        if (!serviceUser && process.env.NODE_ENV === "production") {
+          process.stderr.write(
+            "[payload-agent] No `access.serviceUser` configured; agent operations run with overrideAccess: true (full access, bounded only by collection/operation scoping). Set `access.serviceUser` to enforce Payload access control.\n"
+          );
+        }
+
         const agent = createAgent({
+          access: pluginOptions.access,
           adapter: pluginOptions.agent.adapter,
           debug: pluginOptions.agent.debug,
           maxTokens: pluginOptions.agent.maxTokens,
           payload,
           richText: pluginOptions.richText,
+          serviceUser,
           state,
           systemPrompt: pluginOptions.agent.systemPrompt,
         });
-        registerAgentHandlers(chatInstance, agent);
+
+        const unauthorizedMessage =
+          pluginOptions.access?.unauthorizedMessage === undefined
+            ? DEFAULT_UNAUTHORIZED_MESSAGE
+            : pluginOptions.access.unauthorizedMessage;
+        registerAgentHandlers(
+          chatInstance,
+          agent,
+          pluginOptions.access?.authorize,
+          unauthorizedMessage
+        );
       } else {
         registerEchoHandlers(chatInstance);
       }

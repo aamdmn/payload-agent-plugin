@@ -1,4 +1,5 @@
 import type { Attachment } from "chat";
+import { type HostLookup, readBodyCapped, safeFetch } from "./safe-fetch.js";
 
 /**
  * A file resolved into the shape Payload's Local API expects on
@@ -11,7 +12,19 @@ export interface ResolvedFile {
   size: number;
 }
 
+/** Options for fetching a file from a URL. */
+export interface FetchFileOptions {
+  fetchImpl?: typeof fetch;
+  lookup?: HostLookup;
+  maxBytes?: number;
+  timeoutMs?: number;
+}
+
 const DEFAULT_MIME = "application/octet-stream";
+/** Cap on a URL-fetched file (chat platforms cap inbound media well below). */
+const DEFAULT_MAX_FILE_BYTES = 25 * 1024 * 1024;
+/** Abort a URL fetch that stalls, so a slow internal host can't hang a turn. */
+const DEFAULT_FETCH_TIMEOUT_MS = 15_000;
 const HAS_EXTENSION = /\.[a-z0-9]+$/i;
 const MIME_SUFFIX = /[;+]/;
 
@@ -139,28 +152,57 @@ export async function fileFromAttachment(
   };
 }
 
-/** Fetch a URL and resolve it into an uploadable file. */
+/**
+ * Fetch a URL and resolve it into an uploadable file. The request is restricted
+ * to http(s) and publicly routable addresses (SSRF protection), bounded by a
+ * timeout, and capped in size.
+ */
 export async function fileFromUrl(
   url: string,
-  fetchImpl: typeof fetch = fetch
+  options: FetchFileOptions = {}
 ): Promise<ResolvedFile> {
-  const response = await fetchImpl(url);
+  const {
+    fetchImpl = fetch,
+    lookup,
+    maxBytes = DEFAULT_MAX_FILE_BYTES,
+    timeoutMs = DEFAULT_FETCH_TIMEOUT_MS,
+  } = options;
 
-  if (!response.ok) {
-    throw new Error(`Failed to fetch ${url}: ${response.status}`);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const response = await safeFetch(url, {
+      fetchImpl,
+      lookup,
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch ${url}: ${response.status}`);
+    }
+
+    const declared = Number(response.headers.get("content-length"));
+    if (Number.isFinite(declared) && declared > maxBytes) {
+      throw new Error(
+        `File at ${url} is ${declared} bytes, over the ${maxBytes}-byte limit`
+      );
+    }
+
+    const data = await readBodyCapped(response, maxBytes);
+    const providedMime = response.headers
+      .get("content-type")
+      ?.split(";")[0]
+      ?.trim();
+    const { mimetype, ext } = detectType(providedMime || undefined, data);
+
+    return {
+      data,
+      mimetype,
+      name: nameFromUrl(url, ext),
+      size: data.length,
+    };
+  } finally {
+    clearTimeout(timer);
   }
-
-  const data = Buffer.from(await response.arrayBuffer());
-  const providedMime = response.headers
-    .get("content-type")
-    ?.split(";")[0]
-    ?.trim();
-  const { mimetype, ext } = detectType(providedMime || undefined, data);
-
-  return {
-    data,
-    mimetype,
-    name: nameFromUrl(url, ext),
-    size: data.length,
-  };
 }

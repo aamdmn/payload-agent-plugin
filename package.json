@@ -1,7 +1,7 @@
 {
   "name": "@adamdemian/payload-agent-plugin",
   "version": "1.0.0",
-  "description": "A blank template to get started with Payload 3.0",
+  "description": "AI chat agent for Payload CMS -- query and manage your content from Telegram, Slack, WhatsApp and more.",
   "license": "MIT",
   "type": "module",
   "exports": {

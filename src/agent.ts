@@ -5,6 +5,12 @@ import { createCodeMode } from "@tanstack/ai-code-mode";
 import { createNodeIsolateDriver } from "@tanstack/ai-isolate-node";
 import type { Attachment, StateAdapter } from "chat";
 import type { BasePayload } from "payload";
+import {
+  type AccessControlConfig,
+  resolveAccessibleCollections,
+  resolveOperations,
+  type ServiceUser,
+} from "./access.js";
 import { createConversationHistory } from "./conversation-history.js";
 import { loggingMiddleware } from "./logger.js";
 import {
@@ -20,6 +26,8 @@ const TOKEN_LIMIT_NOTICE =
   "\n\nResponse was truncated because the model hit its token limit. Ask me to continue from where I stopped.";
 
 export interface AgentConfig {
+  /** Restricts which collections the agent can read or write. */
+  access?: AccessControlConfig;
   /** TanStack AI text adapter (e.g. anthropicText('claude-haiku-4-5')) */
   adapter: AnyTextAdapter;
   /** Log agent activity to stdout (default: false) */
@@ -30,6 +38,8 @@ export interface AgentConfig {
   payload: BasePayload;
   /** How richText fields are exchanged with the agent (default: 'markdown') */
   richText?: RichTextMode;
+  /** Resolved Payload user the agent acts as (enables overrideAccess: false). */
+  serviceUser?: null | ServiceUser;
   /** State adapter that backs per-thread conversation history */
   state: StateAdapter;
   /** Optional additional system prompt appended to the default */
@@ -277,8 +287,10 @@ export function createAgent(config: AgentConfig): Agent {
   };
 
   const tools = createPayloadTools(config.payload, {
+    access: config.access,
     resolveAttachment,
     richText: richTextMode,
+    serviceUser: config.serviceUser,
   });
   const driver = createNodeIsolateDriver();
 
@@ -289,7 +301,8 @@ export function createAgent(config: AgentConfig): Agent {
 
   const schemaDescription = buildSchemaDescription(
     config.payload,
-    richTextMode
+    richTextMode,
+    config.access
   );
 
   const richTextGuidance =
@@ -305,12 +318,18 @@ export function createAgent(config: AgentConfig): Agent {
       ].join("\n")
     : "";
 
-  const hasUploadCollections = config.payload.config.collections.some((item) =>
-    Boolean(item.upload)
+  const accessibleCollections = resolveAccessibleCollections(
+    config.payload.config.collections,
+    config.access
   );
-  const uploadGuidance = hasUploadCollections
-    ? "When the user attaches a file you will be given its attachmentId. Save it with uploadFile to an upload collection, then reference the returned document id in upload or relationship fields. uploadFile can also fetch from a url."
-    : "";
+  const operations = resolveOperations(config.access);
+  const hasUploadCollections = config.payload.config.collections.some(
+    (item) => accessibleCollections.has(item.slug) && Boolean(item.upload)
+  );
+  const uploadGuidance =
+    hasUploadCollections && operations.create
+      ? "When the user attaches a file you will be given its attachmentId. Save it with uploadFile to an upload collection, then reference the returned document id in upload or relationship fields. uploadFile can also fetch from a url."
+      : "";
 
   const baseSystemPrompt = [
     "You are a Payload CMS assistant. Help users query and manage their content.",
