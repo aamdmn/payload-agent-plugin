@@ -1,4 +1,4 @@
-# Payload Adapters Reference
+# Payload CMS Adapters Reference
 
 Complete reference for database, storage, and email adapters.
 
