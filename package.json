@@ -32,6 +32,7 @@
     "fix": "ultracite fix",
     "test": "pnpm test:int",
     "test:e2e": "playwright test",
+    "test:eval": "cross-env RUN_AGENT_EVALS=1 vitest run --config vitest.eval.config.js",
     "test:int": "vitest run",
     "prepare": "husky",
     "prepublishOnly": "pnpm clean && pnpm build"
