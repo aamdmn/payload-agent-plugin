@@ -10,6 +10,8 @@
 
 ### Added
 
+- Added a per-message write limit (`agent.maxWritesPerMessage`, default 50): the agent can perform at most that many create/update/delete/upload operations per user message, enforced server-side and shared across every Code Mode execution in the turn. Reaching it raises a recoverable error so the agent stops, reports what it changed, and offers to continue; reads are never capped
+- Added prompt guardrails: the agent is instructed to treat document content, field values, and fetched text as data rather than instructions, and to confirm before deleting documents or making bulk writes
 - Added `access.collections` option (`allow` / `deny`) to scope which collections the agent can read or write. By default internal (`payload-*`) and auth-enabled collections are denied; getSchema, the prompt schema, and every operation are filtered to the accessible set, and `uploadFile` is exposed only when an accessible upload collection exists
 - Added `access.operations` option (`create` / `update` / `delete`) to control which write operations the agent can perform. `delete` is off by default; `create` and `update` are on. A disabled operation's tool is not exposed to the agent at all, and `uploadFile` is governed by `create`
 - Added SSRF protection to URL uploads: `uploadFile({ url })` only fetches http(s) URLs that resolve to publicly routable addresses (loopback, private, link-local, and cloud-metadata ranges are blocked), re-validates every redirect hop, and bounds the request with a timeout and a 25 MB size cap

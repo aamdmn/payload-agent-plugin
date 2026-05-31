@@ -17,6 +17,37 @@ import type { TypesProvider } from "./schema-types.js";
 /** Resolves an inbound chat attachment id to its registered attachment. */
 export type AttachmentResolver = (id: string) => Attachment | undefined;
 
+/**
+ * Per-message cap on write operations. Created fresh for each user message and
+ * shared across every Code Mode execution in that turn, so a single request
+ * cannot run an unbounded number of mutations (e.g. an accidental or injected
+ * bulk delete/update). Reads are never counted.
+ */
+export interface WriteBudget {
+  /** Records one write; throws a recoverable error once the limit is reached. */
+  consume: () => void;
+  /** Number of writes recorded so far in this turn. */
+  readonly used: number;
+}
+
+export function createWriteBudget(limit: number): WriteBudget {
+  let used = 0;
+
+  return {
+    consume() {
+      if (used >= limit) {
+        throw new Error(
+          `Write limit reached: this request already made ${used} change(s), which is the maximum of ${limit} allowed per message. Stop now, tell the user exactly what you changed, and let them know they can ask you to continue.`
+        );
+      }
+      used += 1;
+    },
+    get used() {
+      return used;
+    },
+  };
+}
+
 export interface PayloadToolsOptions {
   /**
    * Restricts which collections the agent can read or write. getSchema and
@@ -38,6 +69,11 @@ export interface PayloadToolsOptions {
    * so the agent writes `data` against real shapes (including block unions).
    */
   typesProvider?: null | TypesProvider;
+  /**
+   * Caps how many write operations (create/update/delete/upload) the tools may
+   * perform before they start rejecting further writes. Reads are never capped.
+   */
+  writeBudget?: WriteBudget;
 }
 
 /**
@@ -300,7 +336,7 @@ export function createPayloadTools(
   options: PayloadToolsOptions = {}
 ): ServerTool[] {
   const richText = options.richText ?? "markdown";
-  const { resolveAttachment, typesProvider } = options;
+  const { resolveAttachment, typesProvider, writeBudget } = options;
   const localizationEnabled = Boolean(payload.config.localization);
   const accessible = resolveAccessibleCollections(
     payload.config.collections,
@@ -485,6 +521,7 @@ export function createPayloadTools(
 
     createDefinition.server(async ({ collection, data, locale }) => {
       assertCollectionAllowed(collection, accessible);
+      writeBudget?.consume();
       try {
         await encodeRichText(collection, data);
 
@@ -509,6 +546,7 @@ export function createPayloadTools(
 
     updateDefinition.server(async ({ collection, id, data, locale }) => {
       assertCollectionAllowed(collection, accessible);
+      writeBudget?.consume();
       try {
         await encodeRichText(collection, data);
 
@@ -534,6 +572,7 @@ export function createPayloadTools(
 
     deleteDocDefinition.server(async ({ collection, id }) => {
       assertCollectionAllowed(collection, accessible);
+      writeBudget?.consume();
       try {
         const doc = await payload.delete({
           collection: collection as AnyCollection,
@@ -574,6 +613,7 @@ export function createPayloadTools(
       uploadFileDefinition.server(
         async ({ collection, attachmentId, url, data, locale }) => {
           assertCollectionAllowed(collection, accessible);
+          writeBudget?.consume();
           try {
             const file = await resolveFile(attachmentId, url);
 

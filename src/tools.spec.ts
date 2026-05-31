@@ -1,6 +1,6 @@
 import type { BasePayload } from "payload";
 import { describe, expect, test, vi } from "vitest";
-import { createPayloadTools } from "./tools.js";
+import { createPayloadTools, createWriteBudget } from "./tools.js";
 
 interface ServerToolLike {
   execute: (args: Record<string, unknown>) => Promise<unknown> | unknown;
@@ -15,6 +15,7 @@ interface StubCollection {
 }
 
 const NOT_ACCESSIBLE = /not accessible/;
+const WRITE_LIMIT_REACHED = /Write limit reached/;
 
 const collections: StubCollection[] = [
   { slug: "posts", fields: [] },
@@ -228,5 +229,52 @@ describe("createPayloadTools service user", () => {
     const args = find.mock.calls[0][0] as Record<string, unknown>;
     expect(args.overrideAccess).toBe(false);
     expect(args.user).toBe(serviceUser);
+  });
+});
+
+describe("createPayloadTools write budget", () => {
+  test("createWriteBudget allows up to the limit, then throws", () => {
+    const budget = createWriteBudget(2);
+
+    budget.consume();
+    budget.consume();
+
+    expect(budget.used).toBe(2);
+    expect(() => budget.consume()).toThrow(WRITE_LIMIT_REACHED);
+  });
+
+  test("writes share one budget and stop once it is exhausted", async () => {
+    const { payload } = stubPayload();
+    const tools = createPayloadTools(payload, {
+      access: { operations: { delete: true } },
+      richText: "lexical",
+      writeBudget: createWriteBudget(2),
+    });
+
+    await getTool(tools, "create").execute({ collection: "posts", data: {} });
+    await getTool(tools, "update").execute({
+      collection: "posts",
+      data: {},
+      id: "1",
+    });
+
+    await expect(
+      getTool(tools, "deleteDoc").execute({ collection: "posts", id: "1" })
+    ).rejects.toThrow(WRITE_LIMIT_REACHED);
+  });
+
+  test("reads never consume the budget", async () => {
+    const { find, payload } = stubPayload();
+    const tools = createPayloadTools(payload, {
+      richText: "lexical",
+      writeBudget: createWriteBudget(1),
+    });
+
+    await getTool(tools, "find").execute({ collection: "posts" });
+    await getTool(tools, "find").execute({ collection: "posts" });
+
+    expect(find).toHaveBeenCalledTimes(2);
+    // The one allowed write is still available because reads did not consume it.
+    await getTool(tools, "create").execute({ collection: "posts", data: {} });
   });
 });
