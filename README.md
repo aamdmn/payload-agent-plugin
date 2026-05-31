@@ -221,6 +221,21 @@ Any adapter from [Chat SDK](https://www.npmjs.com/package/chat) works:
 - Node.js ^18.20.2 or >=20.9.0
 - Payload CMS ^3.37.0
 
+## Development
+
+```bash
+pnpm test        # unit + integration tests (Vitest)
+pnpm test:eval   # agent behavior evals against a live model
+```
+
+`pnpm test:eval` runs the agent loop end-to-end and asserts on the resulting
+database state: creating, updating, and translating content, plus the
+guardrails (delete disabled, the per-message write cap, and ignoring injected
+instructions). It needs a model API key (`ANTHROPIC_API_KEY` or
+`OPENAI_API_KEY`), and it is kept out of the normal suite, so it never runs (or
+spends) unless you invoke it. Set `EVAL_MODEL` to pick the model (e.g.
+`claude-haiku-4-5`).
+
 ## License
 
 MIT

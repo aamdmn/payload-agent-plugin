@@ -18,7 +18,7 @@ export default defineConfig(() => {
     ],
     test: {
       environment: "node",
-      exclude: ["**/e2e.spec.*", "**/node_modules/**"],
+      exclude: ["**/e2e.spec.*", "**/*.eval.*", "**/node_modules/**"],
       // Integration specs each boot Payload against the same SQLite file, so
       // run test files sequentially to avoid SQLITE_BUSY lock contention.
       fileParallelism: false,
