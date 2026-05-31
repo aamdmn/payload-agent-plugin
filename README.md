@@ -9,7 +9,7 @@
 
 Adds a conversational AI agent directly inside your Payload instance. Users query and manage content through chat platforms without leaving their messaging app.
 
-Powered by [Chat SDK](https://www.npmjs.com/package/chat) for multi-platform messaging, [TanStack AI](https://tanstack.com/ai) for model orchestration, and [Code Mode](https://tanstack.com/ai/latest/docs/code-mode/code-mode) for reliable tool execution -- a sandboxed alternative to MCP that runs TypeScript directly against the Payload Local API.
+Powered by [Chat SDK](https://www.npmjs.com/package/chat) for multi-platform messaging, [TanStack AI](https://tanstack.com/ai) for model orchestration, and [Code Mode](https://tanstack.com/ai/latest/docs/code-mode/code-mode) for reliable tool execution - a sandboxed alternative to MCP that runs TypeScript directly against the Payload Local API.
 
 ## Status
 
@@ -104,10 +104,11 @@ payloadAgentPlugin({
 
   // AI agent
   agent: {
-    adapter: AnyTextAdapter,       // required
-    maxTokens?: number,            // default: 4096
-    debug?: boolean,               // log agent activity
-    systemPrompt?: string,         // appended to default prompt
+    adapter: AnyTextAdapter,          // required
+    maxTokens?: number,               // default: 4096
+    maxWritesPerMessage?: number,     // default: 50; writes allowed per message
+    debug?: boolean,                  // log agent activity
+    systemPrompt?: string,            // appended to default prompt
   },
 
   // Access control (see below). Safe defaults apply without it.
@@ -136,7 +137,10 @@ payloadAgentPlugin({
 
 By default the agent uses safe scoping: it skips Payload's internal (`payload-*`)
 and auth collections, can create and update but not delete, answers anyone who
-messages the bot, and only fetches public http(s) URLs.
+messages the bot, and only fetches public http(s) URLs. It is also capped at 50
+write operations per message (`agent.maxWritesPerMessage`) so a single request
+can't run away, and is instructed to treat the content it reads as data, not as
+instructions to follow.
 
 Use the `access` option to go further:
 
@@ -171,7 +175,7 @@ Payload's own access control.
 Conversation history, per-thread locks, and webhook deduplication are stored in
 the configured state adapter. The default is **in-memory**, which is fine for
 local development but **does not persist across restarts and does not work
-across multiple instances** -- the bot forgets every conversation on restart.
+across multiple instances** - the bot forgets every conversation on restart.
 
 For production, pass a persistent state adapter. Both auto-detect their
 connection string from the environment:

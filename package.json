@@ -1,7 +1,7 @@
 {
   "name": "@adamdemian/payload-agent-plugin",
-  "version": "1.0.0",
-  "description": "AI chat agent for Payload CMS -- query and manage your content from Telegram, Slack, WhatsApp and more.",
+  "version": "0.1.0",
+  "description": "AI chat agent for Payload CMS - query and manage your content from Telegram, Slack, WhatsApp and more.",
   "license": "MIT",
   "type": "module",
   "exports": {
@@ -33,7 +33,8 @@
     "test": "pnpm test:int",
     "test:e2e": "playwright test",
     "test:int": "vitest run",
-    "prepare": "husky"
+    "prepare": "husky",
+    "prepublishOnly": "pnpm clean && pnpm build"
   },
   "devDependencies": {
     "@biomejs/biome": "2.4.10",
@@ -86,6 +87,7 @@
     "pnpm": "^9 || ^10"
   },
   "publishConfig": {
+    "access": "public",
     "exports": {
       ".": {
         "import": "./dist/index.js",

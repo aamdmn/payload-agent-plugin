@@ -54,6 +54,12 @@ export interface PayloadAgentPluginConfig {
     debug?: boolean;
     /** Max output tokens per model call (default: 4096) */
     maxTokens?: number;
+    /**
+     * Max write operations (create/update/delete/upload) the agent may perform
+     * per user message, as a safety backstop against runaway or injected bulk
+     * mutations. Reads are never capped. Default: 50.
+     */
+    maxWritesPerMessage?: number;
     /** Additional system prompt appended to the default */
     systemPrompt?: string;
   };
@@ -325,6 +331,7 @@ export const payloadAgentPlugin =
           adapter: pluginOptions.agent.adapter,
           debug: pluginOptions.agent.debug,
           maxTokens: pluginOptions.agent.maxTokens,
+          maxWritesPerMessage: pluginOptions.agent.maxWritesPerMessage,
           payload,
           richText: pluginOptions.richText,
           serviceUser,
