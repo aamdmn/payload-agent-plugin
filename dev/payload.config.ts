@@ -8,7 +8,7 @@ import { lexicalEditor } from "@payloadcms/richtext-lexical";
 import { openaiText } from "@tanstack/ai-openai";
 
 import { type Block, buildConfig } from "payload";
-import { payloadAgentPlugin } from "payload-agent-plugin";
+import { payloadAgentPlugin } from "payload-agent";
 import sharp from "sharp";
 
 import { testEmailAdapter } from "./helpers/test-email-adapter.js";

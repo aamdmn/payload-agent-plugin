@@ -1,7 +1,7 @@
 <div align='center'>
     <br/>
     <br/>
-    <h3>payload-agent-plugin</h3>
+    <h3>payload-agent</h3>
     <p>AI chat agent for Payload CMS. Telegram, Slack, WhatsApp and more.</p>
     <br/>
     <br/>
@@ -20,11 +20,15 @@ Powered by [Chat SDK](https://www.npmjs.com/package/chat) for multi-platform mes
 
 ## Quick Start
 
+```bash
+pnpm add payload-agent
+```
+
 ```ts
 // payload.config.ts
 import { anthropicText } from "@tanstack/ai-anthropic";
 import { createTelegramAdapter } from "@chat-adapter/telegram";
-import { payloadAgentPlugin } from "@adamdemian/payload-agent-plugin";
+import { payloadAgentPlugin } from "payload-agent";
 
 export default buildConfig({
   plugins: [
