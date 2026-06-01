@@ -54,7 +54,7 @@
     "test:eval": "cross-env RUN_AGENT_EVALS=1 vitest run --config vitest.eval.config.js",
     "test:int": "vitest run",
     "prepare": "husky",
-    "prepublishOnly": "pnpm clean && pnpm build"
+    "prepublishOnly": "node scripts/ensure-pnpm.mjs && pnpm clean && pnpm build"
   },
   "devDependencies": {
     "@biomejs/biome": "2.4.10",
