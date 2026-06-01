@@ -34,8 +34,8 @@ Use these sections under `## [Unreleased]`:
 - Each version section is immutable once released
 
 ### Attribution
-- **Internal changes (from issues)**: `Fixed foo bar ([#123](https://github.com/aamdmn/payload-agent-plugin/issues/123))`
-- **External contributions**: `Added feature X ([#456](https://github.com/aamdmn/payload-agent-plugin/pull/456) by [@username](https://github.com/username))`
+- **Internal changes (from issues)**: `Fixed foo bar ([#123](https://github.com/aamdmn/payload-agent/issues/123))`
+- **External contributions**: `Added feature X ([#456](https://github.com/aamdmn/payload-agent/pull/456) by [@username](https://github.com/username))`
 
 ## **CRITICAL** Tool Usage Rules **CRITICAL**
 - NEVER use sed/cat to read a file or a range of a file. Always use the read tool (use offset + limit for ranged reads).
@@ -89,7 +89,7 @@ If the user instructions conflict with rules set out here, ask for confirmation 
 
 # Payload Plugin Development
 
-This project is a **Payload CMS plugin** (`@adamdemian/payload-agent-plugin`). All source code lives in `src/`, with a `dev/` directory for local testing.
+This project is a **Payload CMS plugin** (`payload-agent`). All source code lives in `src/`, with a `dev/` directory for local testing.
 
 For Payload CMS fundamentals (collections, fields, hooks, access control, queries, security patterns), refer to the installed `payload` skill and its reference files in `.agents/skills/payload/`.
 

@@ -1,7 +1,25 @@
 {
-  "name": "@adamdemian/payload-agent-plugin",
-  "version": "0.1.0",
+  "name": "payload-agent",
+  "version": "0.6.0",
   "description": "AI chat agent for Payload CMS - query and manage your content from Telegram, Slack, WhatsApp and more.",
+  "keywords": [
+    "payload",
+    "payload-cms",
+    "payloadcms",
+    "plugin",
+    "ai",
+    "agent",
+    "chatbot",
+    "telegram",
+    "slack",
+    "whatsapp"
+  ],
+  "homepage": "https://github.com/aamdmn/payload-agent#readme",
+  "bugs": "https://github.com/aamdmn/payload-agent/issues",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/aamdmn/payload-agent.git"
+  },
   "license": "MIT",
   "type": "module",
   "exports": {
