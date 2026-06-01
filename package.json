@@ -1,6 +1,6 @@
 {
   "name": "payload-agent",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "AI chat agent for Payload CMS - query and manage your content from Telegram, Slack, WhatsApp and more.",
   "keywords": [
     "payload",

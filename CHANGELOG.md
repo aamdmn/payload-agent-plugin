@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-06-01
+
+### Added
+
+- Added globals support: the agent can read and update Payload globals through new `findGlobal` and `updateGlobal` tools, `getSchema` lists accessible globals (and returns a specific global's generated TypeScript type), and the prompt schema gains an "Available globals" section. Globals are scoped with a new `access.globals` option (`allow` / `deny`; internal `payload-*` globals denied by default). `updateGlobal` is governed by `access.operations.update` and counts against the per-message write limit; Markdown <-> Lexical conversion and `locale` / `fallbackLocale` handling apply to globals exactly as they do to collections. The global tools are exposed only when at least one global is accessible
+
+## [0.6.0] - 2026-06-01
+
 ### Breaking Changes
 
 - Removed `timeout` and `memoryLimit` from agent config. Use `maxTokens` instead.
@@ -18,7 +26,6 @@
 - Added `access.serviceUser` to make the agent act as a specific Payload user (by `{ collection, id }` or a resolver function). When set, every operation runs with `overrideAccess: false`, so Payload's own collection access, field-level access, and hooks apply. Without it the agent keeps full access, now with a production warning recommending you configure it
 - Added `access.authorize(ctx)` to gate which inbound chat messages the agent answers (`ctx` has `platform`, `threadId`, `userId`, `userName`, and the raw `message`/`thread`). It fails closed: a thrown gate refuses rather than allows. `access.unauthorizedMessage` customizes the refusal (set to `null` to stay silent)
 - Added type grounding: `getSchema` called with a specific collection now returns that collection's generated TypeScript (sliced from `payload-types.ts` via `config.typescript.outputFile`), including its block discriminated unions and referenced sub-interfaces, so the agent writes `data` against your real shapes. Falls back to the structural schema when the generated file is unavailable, with a startup hint to run `payload generate:types`
-- Added globals support: the agent can read and update Payload globals through new `findGlobal` and `updateGlobal` tools, `getSchema` lists accessible globals (and returns a specific global's generated TypeScript type), and the prompt schema gains an "Available globals" section. Globals are scoped with a new `access.globals` option (`allow` / `deny`; internal `payload-*` globals denied by default). `updateGlobal` is governed by `access.operations.update` and counts against the per-message write limit; Markdown <-> Lexical conversion and `locale` / `fallbackLocale` handling apply to globals exactly as they do to collections. The global tools are exposed only when at least one global is accessible
 
 - Added `handleMessageStream` method to agent for streaming responses via `AsyncIterable<string>`
 - Added typing heartbeat during agent message processing
