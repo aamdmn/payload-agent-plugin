@@ -14,6 +14,11 @@ interface StubCollection {
   upload?: unknown;
 }
 
+interface StubGlobal {
+  fields: unknown[];
+  slug: string;
+}
+
 const NOT_ACCESSIBLE = /not accessible/;
 const WRITE_LIMIT_REACHED = /Write limit reached/;
 
@@ -23,25 +28,36 @@ const collections: StubCollection[] = [
   { slug: "media", upload: {}, fields: [] },
 ];
 
+const globals: StubGlobal[] = [
+  { slug: "settings", fields: [] },
+  { slug: "payload-internal", fields: [] },
+];
+
 function stubPayload(): {
   find: ReturnType<typeof vi.fn>;
+  findGlobal: ReturnType<typeof vi.fn>;
   payload: BasePayload;
+  updateGlobal: ReturnType<typeof vi.fn>;
 } {
   const find = vi
     .fn()
     .mockResolvedValue({ docs: [], page: 1, totalDocs: 0, totalPages: 0 });
+  const findGlobal = vi.fn().mockResolvedValue({ siteName: "Acme" });
+  const updateGlobal = vi.fn().mockResolvedValue({ siteName: "Acme" });
 
   const payload = {
-    config: { collections, localization: false },
+    config: { collections, globals, localization: false },
     count: vi.fn(),
     create: vi.fn(),
     delete: vi.fn(),
     find,
     findByID: vi.fn(),
+    findGlobal,
     update: vi.fn(),
+    updateGlobal,
   } as unknown as BasePayload;
 
-  return { find, payload };
+  return { find, findGlobal, payload, updateGlobal };
 }
 
 function getTool(tools: unknown[], name: string): ServerToolLike {
@@ -119,6 +135,98 @@ describe("createPayloadTools collection scoping", () => {
   });
 });
 
+describe("createPayloadTools global scoping", () => {
+  test("getSchema lists accessible globals and hides internal ones", async () => {
+    const { payload } = stubPayload();
+    const tools = createPayloadTools(payload, { richText: "lexical" });
+
+    const result = (await getTool(tools, "getSchema").execute({})) as {
+      globals: { slug: string }[];
+    };
+    const slugs = result.globals.map((item) => item.slug);
+
+    expect(slugs).toContain("settings");
+    expect(slugs).not.toContain("payload-internal");
+  });
+
+  test("exposes findGlobal and updateGlobal when a global is accessible", () => {
+    const { payload } = stubPayload();
+    const tools = createPayloadTools(payload, { richText: "lexical" });
+
+    expect(hasTool(tools, "findGlobal")).toBe(true);
+    expect(hasTool(tools, "updateGlobal")).toBe(true);
+  });
+
+  test("hides global tools when no global is accessible", () => {
+    const { payload } = stubPayload();
+    const tools = createPayloadTools(payload, {
+      access: { globals: { deny: ["settings"] } },
+      richText: "lexical",
+    });
+
+    expect(hasTool(tools, "findGlobal")).toBe(false);
+    expect(hasTool(tools, "updateGlobal")).toBe(false);
+  });
+
+  test("an operation on a denied global throws before reaching Payload", async () => {
+    const { findGlobal, payload } = stubPayload();
+    const tools = createPayloadTools(payload, {
+      access: { globals: { allow: ["settings"] } },
+      richText: "lexical",
+    });
+
+    await expect(
+      getTool(tools, "findGlobal").execute({ slug: "payload-internal" })
+    ).rejects.toThrow(NOT_ACCESSIBLE);
+    expect(findGlobal).not.toHaveBeenCalled();
+  });
+
+  test("findGlobal and updateGlobal reach Payload for an accessible global", async () => {
+    const { findGlobal, payload, updateGlobal } = stubPayload();
+    const tools = createPayloadTools(payload, { richText: "lexical" });
+
+    await getTool(tools, "findGlobal").execute({ slug: "settings" });
+    await getTool(tools, "updateGlobal").execute({
+      slug: "settings",
+      data: { siteName: "New" },
+    });
+
+    expect(findGlobal).toHaveBeenCalledTimes(1);
+    expect(updateGlobal).toHaveBeenCalledTimes(1);
+    expect((findGlobal.mock.calls[0][0] as Record<string, unknown>).slug).toBe(
+      "settings"
+    );
+  });
+
+  test("updateGlobal is removed when update is disabled, findGlobal stays", () => {
+    const { payload } = stubPayload();
+    const tools = createPayloadTools(payload, {
+      access: { operations: { update: false } },
+      richText: "lexical",
+    });
+
+    expect(hasTool(tools, "findGlobal")).toBe(true);
+    expect(hasTool(tools, "updateGlobal")).toBe(false);
+  });
+
+  test("updateGlobal consumes the write budget", async () => {
+    const { payload } = stubPayload();
+    const tools = createPayloadTools(payload, {
+      richText: "lexical",
+      writeBudget: createWriteBudget(1),
+    });
+
+    await getTool(tools, "updateGlobal").execute({
+      slug: "settings",
+      data: {},
+    });
+
+    await expect(
+      getTool(tools, "updateGlobal").execute({ slug: "settings", data: {} })
+    ).rejects.toThrow(WRITE_LIMIT_REACHED);
+  });
+});
+
 describe("createPayloadTools operation scoping", () => {
   test("exposes create and update but not delete by default", () => {
     const { payload } = stubPayload();
@@ -158,14 +266,20 @@ describe("createPayloadTools type grounding", () => {
   const typesProvider = {
     getCollectionType: (slug: string): null | string =>
       slug === "posts" ? "type Post = { title: string };" : null,
+    getGlobalType: (slug: string): null | string =>
+      slug === "settings" ? "type Settings = { siteName: string };" : null,
   };
 
   const getSchema = async (
     tools: unknown[],
     args: Record<string, unknown>
-  ): Promise<{ collections: { types?: string }[] }> =>
+  ): Promise<{
+    collections: { types?: string }[];
+    globals: { types?: string }[];
+  }> =>
     (await getTool(tools, "getSchema").execute(args)) as {
       collections: { types?: string }[];
+      globals: { types?: string }[];
     };
 
   test("getSchema includes the collection type when a provider is set", async () => {
@@ -201,6 +315,18 @@ describe("createPayloadTools type grounding", () => {
     const result = await getSchema(tools, { collection: "posts" });
 
     expect(result.collections[0].types).toBeUndefined();
+  });
+
+  test("getSchema includes the global type when a provider is set", async () => {
+    const { payload } = stubPayload();
+    const tools = createPayloadTools(payload, {
+      richText: "lexical",
+      typesProvider,
+    });
+
+    const result = await getSchema(tools, { global: "settings" });
+
+    expect(result.globals[0].types).toContain("type Settings");
   });
 });
 
