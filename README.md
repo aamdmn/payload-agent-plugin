@@ -20,9 +20,13 @@ Powered by [Chat SDK](https://www.npmjs.com/package/chat) for multi-platform mes
 
 ## Quick Start
 
+`payload-agent` ships the agent core. You also bring **one AI provider** and **one or more chat adapters** and pass instances of both into the plugin — so a working install is three packages. The example below uses Claude (Anthropic) and Telegram:
+
 ```bash
-pnpm add payload-agent
+pnpm add payload-agent @tanstack/ai-anthropic @chat-adapter/telegram
 ```
+
+Prefer GPT? Swap the provider for `@tanstack/ai-openai @tanstack/ai-client`. For a different chat platform, swap the adapter for any `@chat-adapter/*` (see [Supported Platforms](#supported-platforms)).
 
 ```ts
 // payload.config.ts
@@ -211,14 +215,16 @@ plugin logs a warning.
 
 ## Supported Platforms
 
-Any adapter from [Chat SDK](https://www.npmjs.com/package/chat) works:
+Any adapter from [Chat SDK](https://www.npmjs.com/package/chat) works — install the matching `@chat-adapter/<platform>` package and pass it in `adapters`:
 
-- Telegram
+- Telegram (`@chat-adapter/telegram`)
 - Slack
 - Discord
 - WhatsApp
 - Microsoft Teams
 - Google Chat
+
+Keep your `@chat-adapter/*` packages on the same release line as the `chat` core this plugin depends on (currently `4.x`) — adapters pin the core version exactly, so a mismatched one can pull in a second copy.
 
 ## Requirements
 

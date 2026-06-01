@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Changed
+
+- Declared the AI provider (`@tanstack/ai-anthropic`, `@tanstack/ai-openai`) and chat adapter (`@chat-adapter/telegram`) packages as optional peer dependencies, so install tooling surfaces version-compatibility guidance for the packages you pass into the plugin. The README quick-start now installs the provider and adapter alongside `payload-agent`
+
 ## [0.7.0] - 2026-06-01
 
 ### Added
