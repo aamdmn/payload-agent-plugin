@@ -94,11 +94,23 @@
     "vitest": "4.1.7"
   },
   "peerDependencies": {
+    "@chat-adapter/telegram": "^4.29.0",
     "@payloadcms/richtext-lexical": "^3.37.0",
+    "@tanstack/ai-anthropic": "^0.11.1",
+    "@tanstack/ai-openai": "^0.10.4",
     "payload": "^3.37.0"
   },
   "peerDependenciesMeta": {
+    "@chat-adapter/telegram": {
+      "optional": true
+    },
     "@payloadcms/richtext-lexical": {
+      "optional": true
+    },
+    "@tanstack/ai-anthropic": {
+      "optional": true
+    },
+    "@tanstack/ai-openai": {
       "optional": true
     }
   },
