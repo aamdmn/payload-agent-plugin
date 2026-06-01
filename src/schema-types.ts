@@ -10,17 +10,21 @@ import type { BasePayload } from "payload";
  * Payload still validates the write.
  */
 
-/** Returns the TypeScript type text for a collection, or null if unavailable. */
+/** Returns the TypeScript type text for a collection or global, or null. */
 export interface TypesProvider {
   getCollectionType(slug: string): null | string;
+  getGlobalType(slug: string): null | string;
 }
 
 const COLLECTIONS_MARKER = "collections: {";
+const GLOBALS_MARKER = "globals: {";
 const MAX_REFERENCED_INTERFACES = 40;
 const MAX_TYPE_CHARS = 30_000;
 
-const COLLECTION_ENTRY =
-  /(?:"([\w-]+)"|([A-Za-z_][\w-]*)):\s*([A-Za-z_]\w*)\s*;/g;
+// Payload emits hyphenated slugs quoted (single OR double quotes, e.g.
+// `'payload-kv'` or `"site-settings"`) and simple slugs bare (`posts`).
+const ENTITY_ENTRY =
+  /(?:["']([\w-]+)["']|([A-Za-z_][\w-]*)):\s*([A-Za-z_]\w*)\s*;/g;
 const PASCAL_WORD = /\b[A-Z][A-Za-z0-9]*\b/g;
 const WORD_CHAR = /[A-Za-z0-9_]/;
 
@@ -57,10 +61,13 @@ function matchingBrace(source: string, openIndex: number): number {
   return -1;
 }
 
-/** Map each collection slug to its generated interface name via `Config`. */
-function parseCollectionMap(source: string): Map<string, string> {
+/**
+ * Map each slug to its generated interface name within a `Config` sub-block
+ * (e.g. `collections: { ... }` or `globals: { ... }`).
+ */
+function parseEntityMap(source: string, marker: string): Map<string, string> {
   const map = new Map<string, string>();
-  const start = source.indexOf(COLLECTIONS_MARKER);
+  const start = source.indexOf(marker);
   if (start === -1) {
     return map;
   }
@@ -72,7 +79,7 @@ function parseCollectionMap(source: string): Map<string, string> {
   }
 
   const block = source.slice(open + 1, close);
-  for (const match of block.matchAll(COLLECTION_ENTRY)) {
+  for (const match of block.matchAll(ENTITY_ENTRY)) {
     const slug = match[1] ?? match[2];
     const typeName = match[3];
     if (slug && typeName) {
@@ -173,10 +180,15 @@ export function sliceCollectionType(
 
 /** Build a provider from already-loaded generated-types source. */
 export function createTypesProvider(source: string): TypesProvider {
-  const slugToName = parseCollectionMap(source);
+  const collectionToName = parseEntityMap(source, COLLECTIONS_MARKER);
+  const globalToName = parseEntityMap(source, GLOBALS_MARKER);
   return {
     getCollectionType(slug) {
-      const name = slugToName.get(slug);
+      const name = collectionToName.get(slug);
+      return name ? sliceCollectionType(source, name) : null;
+    },
+    getGlobalType(slug) {
+      const name = globalToName.get(slug);
       return name ? sliceCollectionType(source, name) : null;
     },
   };

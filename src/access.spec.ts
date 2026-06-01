@@ -4,7 +4,9 @@ import {
   type AccessControlConfig,
   type AuthorizeContext,
   assertCollectionAllowed,
+  assertGlobalAllowed,
   resolveAccessibleCollections,
+  resolveAccessibleGlobals,
   resolveOperations,
   resolveServiceUser,
   runAuthorize,
@@ -80,6 +82,63 @@ describe("assertCollectionAllowed", () => {
 
   test("throws a recoverable error for a denied collection", () => {
     expect(() => assertCollectionAllowed("users", new Set(["posts"]))).toThrow(
+      NOT_ACCESSIBLE
+    );
+  });
+});
+
+const globals = [
+  { slug: "settings" },
+  { slug: "header" },
+  { slug: "payload-internal" },
+];
+
+const resolveGlobals = (config?: AccessControlConfig): Set<string> =>
+  resolveAccessibleGlobals(globals, config);
+
+describe("resolveAccessibleGlobals", () => {
+  test("allows ordinary globals and denies internal ones by default", () => {
+    const accessible = resolveGlobals();
+
+    expect(accessible.has("settings")).toBe(true);
+    expect(accessible.has("header")).toBe(true);
+    expect(accessible.has("payload-internal")).toBe(false);
+  });
+
+  test("allow acts as a whitelist", () => {
+    const accessible = resolveGlobals({ globals: { allow: ["settings"] } });
+
+    expect([...accessible]).toEqual(["settings"]);
+  });
+
+  test("allow can expose an otherwise-denied internal global", () => {
+    const accessible = resolveGlobals({
+      globals: { allow: ["payload-internal"] },
+    });
+
+    expect(accessible.has("payload-internal")).toBe(true);
+    expect(accessible.has("settings")).toBe(false);
+  });
+
+  test("deny wins over allow", () => {
+    const accessible = resolveGlobals({
+      globals: { allow: ["settings", "header"], deny: ["settings"] },
+    });
+
+    expect(accessible.has("settings")).toBe(false);
+    expect(accessible.has("header")).toBe(true);
+  });
+});
+
+describe("assertGlobalAllowed", () => {
+  test("passes for an accessible global", () => {
+    expect(() =>
+      assertGlobalAllowed("settings", new Set(["settings"]))
+    ).not.toThrow();
+  });
+
+  test("throws a recoverable error for a denied global", () => {
+    expect(() => assertGlobalAllowed("header", new Set(["settings"]))).toThrow(
       NOT_ACCESSIBLE
     );
   });

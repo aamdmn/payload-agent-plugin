@@ -18,6 +18,19 @@ const TYPES = `export interface Config {
   collectionsSelect: {
     products: ProductsSelect<false> | ProductsSelect<true>;
   };
+  globals: {
+    'site-settings': SiteSetting;
+  };
+  globalsSelect: {
+    'site-settings': SiteSettingsSelect<false> | SiteSettingsSelect<true>;
+  };
+}
+export interface SiteSetting {
+  id: string;
+  siteName: string;
+}
+export interface SiteSettingsSelect<T extends boolean = true> {
+  siteName?: T;
 }
 export interface Product {
   id: string;
@@ -79,6 +92,17 @@ describe("createTypesProvider", () => {
 
   test("returns null for an unknown collection", () => {
     expect(provider.getCollectionType("unknown")).toBeNull();
+  });
+
+  test("resolves a single-quoted global slug from the globals map", () => {
+    const type = provider.getGlobalType("site-settings") ?? "";
+
+    expect(type).toContain("export interface SiteSetting");
+    expect(type).not.toContain("SiteSettingsSelect");
+  });
+
+  test("returns null for an unknown global", () => {
+    expect(provider.getGlobalType("unknown")).toBeNull();
   });
 });
 

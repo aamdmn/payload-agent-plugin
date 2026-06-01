@@ -31,6 +31,17 @@ export interface CollectionAccessConfig {
   deny?: string[];
 }
 
+/** Controls which globals the agent may read or update. */
+export interface GlobalAccessConfig {
+  /**
+   * If set, the agent may access ONLY these globals. Listing a global here
+   * overrides the secure-by-default denial of internal (`payload-*`) globals.
+   */
+  allow?: string[];
+  /** Globals to deny on top of the secure-by-default set. */
+  deny?: string[];
+}
+
 /** Controls which write operations the agent may perform. Reads are always allowed. */
 export interface OperationAccessConfig {
   /**
@@ -88,6 +99,11 @@ export interface AccessControlConfig {
    * (slugs starting with `payload-`) and auth-enabled collections.
    */
   collections?: CollectionAccessConfig;
+  /**
+   * Restrict which globals the agent can read or update. By default the agent
+   * can access every global except Payload's internal ones (`payload-*`).
+   */
+  globals?: GlobalAccessConfig;
   /**
    * Restrict which write operations the agent may perform. By default the agent
    * can create and update but NOT delete. Reads are always allowed.
@@ -186,6 +202,55 @@ export function assertCollectionAllowed(
   if (!accessible.has(slug)) {
     throw new Error(
       `Collection "${slug}" is not accessible to the agent. Call getSchema to see the collections you can use.`
+    );
+  }
+}
+
+/** A global shape we can scope; matches Payload's sanitized globals. */
+interface ScopeableGlobal {
+  slug: string;
+}
+
+/**
+ * Resolve the set of global slugs the agent may access. Mirrors collection
+ * scoping: `deny` always wins, `allow` is a whitelist that overrides the
+ * secure-by-default denial, and without `allow` every global is accessible
+ * except internal (`payload-*`) ones. Globals never hold credentials, so there
+ * is no auth concept here.
+ */
+export function resolveAccessibleGlobals(
+  globals: ScopeableGlobal[],
+  config: AccessControlConfig = {}
+): Set<string> {
+  const { allow, deny } = config.globals ?? {};
+  const denied = new Set(deny ?? []);
+
+  const slugs = globals
+    .filter((global) => {
+      if (denied.has(global.slug)) {
+        return false;
+      }
+      if (allow) {
+        return allow.includes(global.slug);
+      }
+      return !global.slug.startsWith(INTERNAL_SLUG_PREFIX);
+    })
+    .map((global) => global.slug);
+
+  return new Set(slugs);
+}
+
+/**
+ * Throw a clear, agent-recoverable error when an operation targets a global
+ * outside the accessible set.
+ */
+export function assertGlobalAllowed(
+  slug: string,
+  accessible: Set<string>
+): void {
+  if (!accessible.has(slug)) {
+    throw new Error(
+      `Global "${slug}" is not accessible to the agent. Call getSchema to see the globals you can use.`
     );
   }
 }

@@ -22,7 +22,10 @@ if (!process.env.ROOT_DIR) {
 }
 
 const adapters: Record<string, ReturnType<typeof createTelegramAdapter>> = {};
-if (process.env.TELEGRAM_BOT_TOKEN) {
+// Skip the live Telegram poller under vitest: every integration spec boots its
+// own Payload, and polling mode makes a network call to Telegram in onInit,
+// which makes the suite flaky and non-hermetic.
+if (process.env.TELEGRAM_BOT_TOKEN && !process.env.VITEST) {
   adapters.telegram = createTelegramAdapter({ mode: "polling" });
 }
 
@@ -210,6 +213,16 @@ export default buildConfig({
         { name: "title", type: "text", required: true, localized: true },
         { name: "slug", type: "text", required: true },
         { name: "layout", type: "blocks", blocks: layoutBlocks },
+      ],
+    },
+  ],
+  globals: [
+    {
+      slug: "site-settings",
+      fields: [
+        { name: "siteName", type: "text", localized: true },
+        { name: "tagline", type: "text", localized: true },
+        { name: "about", type: "richText", localized: true },
       ],
     },
   ],

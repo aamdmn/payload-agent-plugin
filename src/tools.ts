@@ -6,7 +6,9 @@ import { z } from "zod";
 import {
   type AccessControlConfig,
   assertCollectionAllowed,
+  assertGlobalAllowed,
   resolveAccessibleCollections,
+  resolveAccessibleGlobals,
   resolveOperations,
   type ServiceUser,
 } from "./access.js";
@@ -165,31 +167,44 @@ const writeLocaleInput = z
   .optional()
   .describe("Locale to write to (omit to use the default locale)");
 
+const schemaFields = z.array(
+  z.object({
+    name: z.string(),
+    type: z.string(),
+    required: z.boolean().optional(),
+    localized: z.boolean().optional(),
+    relationTo: z.string().optional(),
+    options: z.array(z.string()).optional(),
+  })
+);
+
 const getSchemaDefinition = toolDefinition({
   name: "getSchema",
   description:
-    "Get the schema for one or all Payload CMS collections. Call with a specific collection before creating or editing it: the result includes that collection's TypeScript type (with block unions) to build `data` against. Omit the collection to list all.",
+    "Get the schema for Payload CMS collections and globals. Call with a specific collection (or global) before creating or editing it: the result includes that entity's TypeScript type (with block unions) to build `data` against. Omit both to list everything.",
   inputSchema: z.object({
     collection: z
       .string()
       .optional()
-      .describe("Collection slug. Omit to list all collections."),
+      .describe("Collection slug. Omit (with global) to list all."),
+    global: z
+      .string()
+      .optional()
+      .describe("Global slug. Omit (with collection) to list all."),
   }),
   outputSchema: z.object({
     collections: z.array(
       z.object({
         slug: z.string(),
         upload: z.boolean().optional(),
-        fields: z.array(
-          z.object({
-            name: z.string(),
-            type: z.string(),
-            required: z.boolean().optional(),
-            localized: z.boolean().optional(),
-            relationTo: z.string().optional(),
-            options: z.array(z.string()).optional(),
-          })
-        ),
+        fields: schemaFields,
+        types: z.string().optional(),
+      })
+    ),
+    globals: z.array(
+      z.object({
+        slug: z.string(),
+        fields: schemaFields,
         types: z.string().optional(),
       })
     ),
@@ -317,8 +332,39 @@ const uploadFileDefinition = toolDefinition({
   outputSchema: z.record(z.string(), z.unknown()),
 });
 
+const findGlobalDefinition = toolDefinition({
+  name: "findGlobal",
+  description:
+    "Read a Payload CMS global -- a singleton document such as site settings or a header. Globals have no id and cannot be created or deleted.",
+  inputSchema: z.object({
+    slug: z.string().describe("Global slug"),
+    select: z
+      .record(z.string(), z.boolean())
+      .optional()
+      .describe("Select specific fields to reduce payload size"),
+    locale: readLocaleInput,
+    fallbackLocale: fallbackLocaleInput,
+  }),
+  outputSchema: z.record(z.string(), z.unknown()),
+});
+
+const updateGlobalDefinition = toolDefinition({
+  name: "updateGlobal",
+  description:
+    "Update a Payload CMS global (a singleton document). Pass only the fields you want to change.",
+  inputSchema: z.object({
+    slug: z.string().describe("Global slug"),
+    data: z.record(z.string(), z.unknown()).describe("Fields to update"),
+    locale: writeLocaleInput,
+  }),
+  outputSchema: z.record(z.string(), z.unknown()),
+});
+
 // biome-ignore lint/suspicious/noExplicitAny: Payload's collection slug type requires generic inference
 type AnyCollection = any;
+
+// biome-ignore lint/suspicious/noExplicitAny: Payload's global slug type requires generic inference
+type AnyGlobal = any;
 
 function getCollectionFields(
   payload: BasePayload,
@@ -329,6 +375,12 @@ function getCollectionFields(
   );
 
   return collection ? collection.fields : null;
+}
+
+function getGlobalFields(payload: BasePayload, slug: string): Field[] | null {
+  const global = payload.config.globals?.find((item) => item.slug === slug);
+
+  return global ? global.fields : null;
 }
 
 export function createPayloadTools(
@@ -342,6 +394,11 @@ export function createPayloadTools(
     payload.config.collections,
     options.access
   );
+  const accessibleGlobals = resolveAccessibleGlobals(
+    payload.config.globals ?? [],
+    options.access
+  );
+  const hasGlobals = accessibleGlobals.size > 0;
   const hasUploadCollections = payload.config.collections.some(
     (item) => accessible.has(item.slug) && Boolean(item.upload)
   );
@@ -391,42 +448,54 @@ export function createPayloadTools(
   };
 
   // Encode agent-supplied Markdown into Lexical editor state before writing.
+  // Takes the entity's resolved fields so it serves both collections and globals.
   const encodeRichText = async (
-    collection: string,
+    fields: Field[] | null,
     data: Record<string, unknown>
   ): Promise<void> => {
-    if (richText !== "markdown") {
+    if (richText !== "markdown" || !fields) {
       return;
     }
 
-    const fields = getCollectionFields(payload, collection);
-    if (fields) {
-      await markdownToRichText(fields, data);
-    }
+    await markdownToRichText(fields, data);
   };
 
   // Decode stored Lexical editor state into Markdown before returning to agent.
   const decodeRichText = async (
-    collection: string,
+    fields: Field[] | null,
     doc: Record<string, unknown>
   ): Promise<void> => {
-    if (richText !== "markdown") {
+    if (richText !== "markdown" || !fields) {
       return;
     }
 
-    const fields = getCollectionFields(payload, collection);
-    if (fields) {
-      await richTextToMarkdown(fields, doc);
-    }
+    await richTextToMarkdown(fields, doc);
   };
 
   const tools = [
-    getSchemaDefinition.server(({ collection }) => {
+    getSchemaDefinition.server(({ collection, global }) => {
+      // A targeted call (collection or global named) returns only that side;
+      // a bare call lists every accessible collection and global.
+      const targeted = Boolean(collection) || Boolean(global);
+
       const collections = payload.config.collections.filter((item) => {
         if (!accessible.has(item.slug)) {
           return false;
         }
-        return collection ? item.slug === collection : true;
+        if (collection) {
+          return item.slug === collection;
+        }
+        return !targeted;
+      });
+
+      const globals = (payload.config.globals ?? []).filter((item) => {
+        if (!accessibleGlobals.has(item.slug)) {
+          return false;
+        }
+        if (global) {
+          return item.slug === global;
+        }
+        return !targeted;
       });
 
       return {
@@ -437,6 +506,14 @@ export function createPayloadTools(
           types:
             collection && typesProvider
               ? (typesProvider.getCollectionType(item.slug) ?? undefined)
+              : undefined,
+        })),
+        globals: globals.map((item) => ({
+          slug: item.slug,
+          fields: extractFields(item.fields),
+          types:
+            global && typesProvider
+              ? (typesProvider.getGlobalType(item.slug) ?? undefined)
               : undefined,
         })),
       };
@@ -467,8 +544,9 @@ export function createPayloadTools(
           });
 
           const docs = result.docs as Record<string, unknown>[];
+          const fields = getCollectionFields(payload, collection);
           for (const doc of docs) {
-            await decodeRichText(collection, doc);
+            await decodeRichText(fields, doc);
           }
 
           return {
@@ -507,7 +585,10 @@ export function createPayloadTools(
           });
 
           const result = doc as Record<string, unknown>;
-          await decodeRichText(collection, result);
+          await decodeRichText(
+            getCollectionFields(payload, collection),
+            result
+          );
           return result;
         } catch (error) {
           throwPayloadToolError(
@@ -523,7 +604,8 @@ export function createPayloadTools(
       assertCollectionAllowed(collection, accessible);
       writeBudget?.consume();
       try {
-        await encodeRichText(collection, data);
+        const fields = getCollectionFields(payload, collection);
+        await encodeRichText(fields, data);
 
         const doc = await payload.create({
           collection: collection as AnyCollection,
@@ -533,7 +615,7 @@ export function createPayloadTools(
         });
 
         const result = doc as Record<string, unknown>;
-        await decodeRichText(collection, result);
+        await decodeRichText(fields, result);
         return result;
       } catch (error) {
         throwPayloadToolError(
@@ -548,7 +630,8 @@ export function createPayloadTools(
       assertCollectionAllowed(collection, accessible);
       writeBudget?.consume();
       try {
-        await encodeRichText(collection, data);
+        const fields = getCollectionFields(payload, collection);
+        await encodeRichText(fields, data);
 
         const doc = await payload.update({
           collection: collection as AnyCollection,
@@ -559,7 +642,7 @@ export function createPayloadTools(
         });
 
         const result = doc as Record<string, unknown>;
-        await decodeRichText(collection, result);
+        await decodeRichText(fields, result);
         return result;
       } catch (error) {
         throwPayloadToolError(
@@ -626,7 +709,10 @@ export function createPayloadTools(
             });
 
             const result = doc as Record<string, unknown>;
-            await decodeRichText(collection, result);
+            await decodeRichText(
+              getCollectionFields(payload, collection),
+              result
+            );
             return result;
           } catch (error) {
             throwPayloadToolError(
@@ -644,6 +730,60 @@ export function createPayloadTools(
     );
   }
 
+  // Only expose global tools when at least one global is accessible.
+  if (hasGlobals) {
+    tools.push(
+      findGlobalDefinition.server(
+        async ({ slug, select, locale, fallbackLocale }) => {
+          assertGlobalAllowed(slug, accessibleGlobals);
+          try {
+            const doc = await payload.findGlobal({
+              slug: slug as AnyGlobal,
+              select: select as SelectType | undefined,
+              ...localeArgs(locale, fallbackLocale),
+              ...accessArgs,
+            });
+
+            const result = doc as Record<string, unknown>;
+            await decodeRichText(getGlobalFields(payload, slug), result);
+            return result;
+          } catch (error) {
+            throwPayloadToolError(
+              "findGlobal",
+              { slug, hasSelect: Boolean(select) },
+              error
+            );
+          }
+        }
+      ) as ServerTool,
+      updateGlobalDefinition.server(async ({ slug, data, locale }) => {
+        assertGlobalAllowed(slug, accessibleGlobals);
+        writeBudget?.consume();
+        try {
+          const fields = getGlobalFields(payload, slug);
+          await encodeRichText(fields, data);
+
+          const doc = await payload.updateGlobal({
+            slug: slug as AnyGlobal,
+            data,
+            ...localeArgs(locale),
+            ...accessArgs,
+          });
+
+          const result = doc as Record<string, unknown>;
+          await decodeRichText(fields, result);
+          return result;
+        } catch (error) {
+          throwPayloadToolError(
+            "updateGlobal",
+            { slug, dataKeys: Object.keys(data) },
+            error
+          );
+        }
+      }) as ServerTool
+    );
+  }
+
   // Drop the tools for disabled write operations so the agent never sees them.
   // Reads stay; delete is off unless explicitly enabled. uploadFile is a create.
   const operations = resolveOperations(options.access);
@@ -654,12 +794,44 @@ export function createPayloadTools(
   }
   if (!operations.update) {
     disabledTools.add("update");
+    disabledTools.add("updateGlobal");
   }
   if (!operations.delete) {
     disabledTools.add("deleteDoc");
   }
 
   return tools.filter((tool) => !disabledTools.has(tool.name));
+}
+
+function describeFields(fields: FieldInfo[], richText: RichTextMode): string {
+  return fields
+    .map((field) => {
+      let description = `${field.name} (${field.type}`;
+
+      if (field.required) {
+        description += ", required";
+      }
+
+      if (field.localized) {
+        description += ", localized";
+      }
+
+      if (richText === "markdown" && field.type === "richText") {
+        description += ", markdown";
+      }
+
+      if (field.relationTo) {
+        description += ` -> ${field.relationTo}`;
+      }
+
+      if (field.options) {
+        description += `, options: ${field.options.join(" | ")}`;
+      }
+
+      description += ")";
+      return description;
+    })
+    .join(", ");
 }
 
 export function buildSchemaDescription(
@@ -678,38 +850,40 @@ export function buildSchemaDescription(
       continue;
     }
 
-    const fields = extractFields(collection.fields);
-    const fieldDescriptions = fields
-      .map((field) => {
-        let description = `${field.name} (${field.type}`;
-
-        if (field.required) {
-          description += ", required";
-        }
-
-        if (field.localized) {
-          description += ", localized";
-        }
-
-        if (richText === "markdown" && field.type === "richText") {
-          description += ", markdown";
-        }
-
-        if (field.relationTo) {
-          description += ` -> ${field.relationTo}`;
-        }
-
-        if (field.options) {
-          description += `, options: ${field.options.join(" | ")}`;
-        }
-
-        description += ")";
-        return description;
-      })
-      .join(", ");
-
+    const fieldDescriptions = describeFields(
+      extractFields(collection.fields),
+      richText
+    );
     const uploadMarker = collection.upload ? " (upload collection)" : "";
     lines.push(`- ${collection.slug}${uploadMarker}: ${fieldDescriptions}`);
+  }
+
+  return lines.join("\n");
+}
+
+/**
+ * A one-line-per-global summary of accessible globals, mirroring
+ * buildSchemaDescription. Returns "" when no globals are accessible.
+ */
+export function buildGlobalsDescription(
+  payload: BasePayload,
+  richText: RichTextMode = "markdown",
+  access?: AccessControlConfig
+): string {
+  const globals = payload.config.globals ?? [];
+  const accessible = resolveAccessibleGlobals(globals, access);
+  const lines: string[] = [];
+
+  for (const global of globals) {
+    if (!accessible.has(global.slug)) {
+      continue;
+    }
+
+    const fieldDescriptions = describeFields(
+      extractFields(global.fields),
+      richText
+    );
+    lines.push(`- ${global.slug}: ${fieldDescriptions}`);
   }
 
   return lines.join("\n");

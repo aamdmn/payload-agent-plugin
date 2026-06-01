@@ -26,6 +26,7 @@ export type {
   Authorize,
   AuthorizeContext,
   CollectionAccessConfig,
+  GlobalAccessConfig,
   OperationAccessConfig,
   ServiceUser,
   ServiceUserConfig,
@@ -37,11 +38,12 @@ const DEFAULT_UNAUTHORIZED_MESSAGE =
 
 export interface PayloadAgentPluginConfig {
   /**
-   * Restricts which collections the agent can read or write. By default the
-   * agent can access every collection except Payload's internal collections
-   * (slugs starting with `payload-`) and auth-enabled collections (which hold
-   * credentials and sessions). Use `access.collections.allow` to expose a
-   * specific set, or `access.collections.deny` to remove more.
+   * Restricts which collections and globals the agent can read or write. By
+   * default the agent can access every collection except Payload's internal
+   * collections (slugs starting with `payload-`) and auth-enabled collections
+   * (which hold credentials and sessions), and every global except internal
+   * (`payload-*`) ones. Use `access.collections`/`access.globals` with `allow`
+   * to expose a specific set, or `deny` to remove more.
    */
   access?: AccessControlConfig;
   /** Chat platform adapters (e.g. telegram, slack, whatsapp). */
