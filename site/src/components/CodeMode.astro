@@ -1,0 +1,272 @@
+---
+/*
+ * Code Mode section — the "tool calling vs Code Mode" comparison. Same task
+ * (publish 18 draft products): the left window grinds through a round-trip per
+ * call; the right runs one TypeScript program in one pass. The terminal mirrors
+ * the hero's Terminal.tsx (palette, Mac chrome). Static; windows stack on mobile.
+ */
+const STRING_RE = /("(?:[^"\\]|\\.)*")/g;
+
+const codeTrail = [
+	{ kind: "code", text: "const drafts = await external_find({" },
+	{ kind: "code", text: '  collection: "products",' },
+	{ kind: "code", text: '  where: { _status: "draft" },' },
+	{ kind: "code", text: "})" },
+	{ kind: "out", text: "18 docs" },
+	{ kind: "code", text: "await Promise.all(drafts.docs.map((p) =>" },
+	{ kind: "code", text: "  external_update({" },
+	{ kind: "code", text: '    collection: "products",' },
+	{ kind: "code", text: '    id: p.id, data: { _status: "published" } })))' },
+	{ kind: "ok", text: "18 published · one turn" },
+];
+
+const toolTrail = [
+	{ kind: "call", text: "external_find · products · draft" },
+	{ kind: "result", text: "18 docs · back to model" },
+	{ kind: "call", text: "external_update · #1" },
+	{ kind: "result", text: "ok · back to model" },
+	{ kind: "call", text: "external_update · #2" },
+	{ kind: "result", text: "ok · back to model" },
+	{ kind: "call", text: "external_update · #3" },
+	{ kind: "result", text: "ok · back to model" },
+	{ kind: "more", text: "+ 15 more calls …" },
+];
+---
+
+<section class="mx-auto w-full max-w-[1320px] px-6">
+	<div
+		class="flex flex-col items-center gap-[60px] border-t border-hairline py-24 max-md:gap-12 max-md:py-16"
+	>
+		<div class="flex max-w-[820px] flex-col items-center gap-5">
+			<p
+				class="font-mono text-xs font-medium uppercase tracking-[0.08em] text-accent"
+			>
+				Code Mode
+			</p>
+			<h2
+				class="flex flex-col items-center text-center font-sans text-[40px] font-light leading-[1.15] tracking-[-0.015em] max-md:text-3xl"
+			>
+				<span class="text-muted">Most agents call tools one by one.</span>
+				<span class="text-fg">payload-agent writes TypeScript.</span>
+			</h2>
+			<p
+				class="max-w-[660px] text-center text-[18px] leading-[28px] text-secondary"
+			>
+				<a href="https://tanstack.com/ai/latest/docs/code-mode/code-mode" class="text-blue-400" target="_blank">Code Mode</a> by Tanstack AI gives the model a typed API and ability to write
+				TypeScript. It runs in a sandbox against your real schema, so multi-step
+				work finishes in one turn instead of a round-trip per call.
+			</p>
+		</div>
+
+		<div
+			class="flex w-full max-w-[920px] flex-col items-stretch justify-center gap-12 lg:flex-row lg:gap-0"
+		>
+			<div class="flex flex-1 flex-col items-center gap-[22px]">
+				<div
+					class="flex w-[384px] max-w-full flex-col overflow-hidden rounded-[13px] border border-black/[0.08] bg-[#FCFCFD] shadow-[0_24px_60px_-30px_rgba(0,0,0,0.35)] dark:border-white/[0.09] dark:bg-[#0d0d0f]"
+				>
+					<div
+						class="flex items-center justify-between border-b border-black/[0.06] bg-black/[0.018] px-[13px] py-[10px] dark:border-white/[0.06] dark:bg-white/[0.025]"
+					>
+						<div class="flex items-center gap-2">
+							<div class="flex items-center gap-[7px]">
+								<span class="h-[11px] w-[11px] rounded-full bg-[#FF5F57]"></span>
+								<span class="h-[11px] w-[11px] rounded-full bg-[#FEBC2E]"></span>
+								<span class="h-[11px] w-[11px] rounded-full bg-[#28C840]"></span>
+							</div>
+							<span
+								class="font-mono text-[11.5px] tracking-[0.02em] text-black/45 dark:text-white/50"
+								>MCP · tool calls</span
+							>
+						</div>
+						<div
+							class="flex items-center gap-1.5 font-mono text-[11px] text-black/40 dark:text-white/40"
+						>
+							<span class="h-1.5 w-1.5 rounded-full bg-[#FEBC2E]"></span>3 / 19
+						</div>
+					</div>
+					<div
+						class="flex h-[272px] flex-col gap-px overflow-hidden px-4 py-3.5 font-mono text-[12.5px] leading-5 tracking-[-0.01em]"
+					>
+						{
+							toolTrail.map((line) => {
+								if (line.kind === "call") {
+									return (
+										<div class="flex gap-2 whitespace-pre">
+											<span class="text-black/30 dark:text-white/30">→</span>
+											<span class="text-black/60 dark:text-white/60">
+												{line.text}
+											</span>
+										</div>
+									);
+								}
+								if (line.kind === "result") {
+									return (
+										<div class="flex gap-2 whitespace-pre">
+											<span class="text-black/25 dark:text-white/25">←</span>
+											<span class="text-black/40 dark:text-white/40">
+												{line.text}
+											</span>
+										</div>
+									);
+								}
+								return (
+									<div class="flex gap-2 whitespace-pre text-black/30 dark:text-white/30">
+										<span>↳</span>
+										<span>{line.text}</span>
+									</div>
+								);
+							})
+						}
+					</div>
+				</div>
+				<div class="flex flex-col items-center gap-1.5">
+					<span
+						class="text-[32px] font-light leading-none tracking-[-0.02em] text-muted"
+						>19</span
+					>
+					<span
+						class="font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-muted"
+						>Round-trips</span
+					>
+					<span class="text-[13px] text-muted">19 model passes</span>
+				</div>
+			</div>
+
+			<div
+				class="hidden w-[72px] flex-col items-center justify-center gap-3.5 self-stretch lg:flex"
+			>
+				<div class="w-px flex-1 bg-hairline"></div>
+				<span class="font-mono text-xs font-medium tracking-[0.04em] text-muted"
+					>vs</span
+				>
+				<div class="w-px flex-1 bg-hairline"></div>
+			</div>
+
+			<div class="flex flex-1 flex-col items-center gap-[22px]">
+				<div
+					class="flex w-[384px] max-w-full flex-col overflow-hidden rounded-[13px] border border-black/[0.08] bg-[#FCFCFD] shadow-[0_24px_60px_-30px_rgba(0,0,0,0.35)] dark:border-white/[0.09] dark:bg-[#0d0d0f]"
+				>
+					<div
+						class="flex items-center justify-between border-b border-black/[0.06] bg-black/[0.018] px-[13px] py-[10px] dark:border-white/[0.06] dark:bg-white/[0.025]"
+					>
+						<div class="flex items-center gap-2">
+							<div class="flex items-center gap-[7px]">
+								<span class="h-[11px] w-[11px] rounded-full bg-[#FF5F57]"></span>
+								<span class="h-[11px] w-[11px] rounded-full bg-[#FEBC2E]"></span>
+								<span class="h-[11px] w-[11px] rounded-full bg-[#28C840]"></span>
+							</div>
+							<span
+								class="font-mono text-[11.5px] tracking-[0.02em] text-black/45 dark:text-white/50"
+								>TanStack AI · code-mode</span
+							>
+						</div>
+						<div
+							class="flex items-center gap-1.5 font-mono text-[11px] text-black/40 dark:text-white/40"
+						>
+							<span class="h-1.5 w-1.5 rounded-full bg-[#34C759]"></span>done
+						</div>
+					</div>
+					<div
+						class="flex h-[272px] flex-col gap-px overflow-hidden px-4 py-3.5 font-mono text-[12.5px] leading-5 tracking-[-0.01em]"
+					>
+						{
+							codeTrail.map((line) => {
+								if (line.kind === "out") {
+									return (
+										<div class="flex whitespace-pre">
+											<span class="text-accent">→ </span>
+											<span class="text-black/40 dark:text-white/40">
+												{line.text}
+											</span>
+										</div>
+									);
+								}
+								if (line.kind === "ok") {
+									return (
+										<div class="flex items-center gap-1.5 whitespace-pre text-black/40 dark:text-white/40">
+											<svg
+												width="12"
+												height="12"
+												viewBox="0 0 24 24"
+												fill="none"
+												stroke="#34C759"
+												stroke-width="3.4"
+												stroke-linecap="round"
+												stroke-linejoin="round"
+												class="shrink-0"
+												aria-hidden="true"
+											>
+												<path d="M20 6L9 17l-5-5" />
+											</svg>
+											{line.text}
+										</div>
+									);
+								}
+								const parts = line.text.split(STRING_RE);
+								return (
+									<div class="whitespace-pre text-black/85 dark:text-white/90">
+										{parts.map((part, i) =>
+											i % 2 === 1 ? (
+												<span class="text-black/50 dark:text-white/60">
+													{part}
+												</span>
+											) : (
+												part
+											)
+										)}
+									</div>
+								);
+							})
+						}
+						<div>
+							<span
+								class="cm-caret inline-block h-3.5 w-[7px] rounded-[1px] bg-accent"
+							></span>
+						</div>
+					</div>
+				</div>
+				<div class="flex flex-col items-center gap-1.5">
+					<span
+						class="text-[32px] font-light leading-none tracking-[-0.02em] text-fg"
+						>1</span
+					>
+					<span
+						class="font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-fg"
+						>Execution</span
+					>
+					<span class="text-[13px] text-muted">one model pass</span>
+				</div>
+			</div>
+		</div>
+
+		<p
+			class="max-w-[620px] text-center text-base leading-6 text-secondary"
+		>
+			Better performance, one model pass instead of nineteen - faster replies, a
+			fraction of the tokens, and the types keep every call safe.
+		</p>
+	</div>
+</section>
+
+<style>
+	@keyframes cmBlink {
+		0%,
+		100% {
+			opacity: 1;
+		}
+		50% {
+			opacity: 0;
+		}
+	}
+
+	.cm-caret {
+		animation: cmBlink 1s step-end infinite;
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.cm-caret {
+			animation: none;
+		}
+	}
+</style>

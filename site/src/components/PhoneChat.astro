@@ -1,0 +1,13 @@
+---
+/*
+ * Hero iPhone demo: an iMessage-style conversation showing payload-agent managing
+ * Payload content from chat. Rendered as a client:visible React island (motion).
+ * Decorative — the same story is conveyed by the surrounding copy, so it's hidden
+ * from assistive tech to avoid narrating the looping animation.
+ */
+import PhoneShowcase from "./iphone/PhoneShowcase.tsx";
+---
+
+<div aria-hidden="true">
+	<PhoneShowcase client:visible />
+</div>

@@ -1,0 +1,71 @@
+---
+const repo = "https://github.com/aamdmn/payload-agent";
+---
+
+<header
+	class="border-b border-hairline"
+>
+	<div
+		class="mx-auto flex h-16 w-full max-w-[1320px] items-center justify-between px-6"
+	>
+		<a href="/" class="font-mono text-sm font-medium tracking-[-0.01em]">
+			payload-agent
+		</a>
+		<nav class="flex items-center gap-6 text-sm text-secondary">
+			<a
+				href={repo}
+				target="_blank"
+				rel="noopener"
+				class="transition-colors hover:text-fg">GitHub</a
+			>
+			<button
+				id="theme-toggle"
+				type="button"
+				aria-label="Toggle color theme"
+				class="flex h-[34px] w-[34px] items-center justify-center rounded-lg border border-hairline text-fg transition-colors hover:border-secondary"
+			>
+				<svg
+					class="block dark:hidden"
+					width="16"
+					height="16"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="1.6"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					aria-hidden="true"
+				>
+					<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+				</svg>
+				<svg
+					class="hidden dark:block"
+					width="16"
+					height="16"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="1.6"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					aria-hidden="true"
+				>
+					<circle cx="12" cy="12" r="4"></circle>
+					<path
+						d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"
+					></path>
+				</svg>
+			</button>
+		</nav>
+	</div>
+</header>
+
+<script>
+	const root = document.documentElement;
+	const toggle = document.getElementById("theme-toggle");
+	toggle?.addEventListener("click", () => {
+		const next = root.dataset.theme === "dark" ? "light" : "dark";
+		root.dataset.theme = next;
+		localStorage.setItem("theme", next);
+	});
+</script>

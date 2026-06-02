@@ -1,0 +1,97 @@
+---
+import AdminWindow from "../components/AdminWindow.astro";
+import CodeMode from "../components/CodeMode.astro";
+import ConfigWindow from "../components/ConfigWindow.astro";
+import Integrations from "../components/Integrations.astro";
+import PhoneChat from "../components/PhoneChat.astro";
+import Base from "../layouts/Base.astro";
+
+const repo = "https://github.com/aamdmn/payload-agent";
+
+const installCmd = "pnpm add payload-agent";
+---
+
+<Base
+	title="payload-agent — AI chat agent for Payload CMS"
+	description="An AI agent inside your Payload CMS. Query and manage content from Telegram, Slack, WhatsApp and more."
+>
+	<section
+		class="mx-auto flex w-full max-w-[1320px] flex-col items-start gap-12 px-6 pt-12 pb-24 max-md:gap-8 max-md:pt-9 max-md:pb-16"
+	>
+		<div class="rise flex w-full flex-col items-start">
+			<p
+				class="flex items-center gap-2.5 font-mono text-xs font-medium uppercase tracking-[0.08em] text-accent"
+			>
+				Payload CMS plugin<span
+					class="rounded-full bg-accent/10 px-2 py-[3px] text-[10px] text-accent"
+					>Beta</span
+				>
+			</p>
+			<h1
+				class="mt-4 max-w-[720px] font-sans text-6xl font-light leading-[1] tracking-[-0.02em]"
+			>
+				Manage your Payload content straight from chat.
+			</h1>
+			<p class="mt-5 max-w-[520px] text-[17px] leading-[1.5] text-secondary">
+				An AI agent inside your Payload instance - your team queries, edits,
+				and translates content from Slack, Telegram and more.
+			</p>
+			<div class="mt-7 flex flex-wrap items-center gap-3">
+				<a
+					href={repo}
+					target="_blank"
+					rel="noopener"
+					class="inline-flex h-11 items-center justify-center rounded-[10px] bg-fg px-[22px] text-[15px] text-bg transition-transform duration-150 hover:-translate-y-px"
+				>
+					View on GitHub
+				</a>
+				<button
+					id="copy-install"
+					type="button"
+					data-cmd={installCmd}
+					aria-label={`Copy install command: ${installCmd}`}
+					class="group inline-flex h-11 cursor-pointer items-center gap-[10px] rounded-[10px] border border-hairline bg-surface px-4 font-mono text-[13px] transition duration-150 ease-out hover:border-secondary active:scale-[0.98]"
+				>
+					<span class="text-accent">$</span>
+					<code class="whitespace-nowrap text-fg">{installCmd}</code>
+					<span
+						class="relative ml-0.5 inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center text-muted"
+					>
+						<svg class="absolute transition duration-200 ease-out group-data-[copied=true]:scale-50 group-data-[copied=true]:opacity-0" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+						<svg class="absolute scale-50 text-accent opacity-0 transition duration-200 ease-out group-data-[copied=true]:scale-100 group-data-[copied=true]:opacity-100" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"></path></svg>
+					</span>
+				</button>
+			</div>
+		</div>
+
+		<div class="rise relative w-full">
+			<AdminWindow />
+			<div
+				class="mt-10 flex justify-center lg:absolute lg:right-3 lg:top-1/2 lg:z-10 lg:mt-0 lg:-translate-y-1/2 xl:right-6"
+			>
+				<PhoneChat />
+			</div>
+		</div>
+	</section>
+
+	<Integrations />
+
+	<CodeMode />
+
+	<ConfigWindow />
+</Base>
+
+<script>
+	const btn = document.getElementById("copy-install");
+	if (btn) {
+		let resetTimer = 0;
+		btn.addEventListener("click", () => {
+			navigator.clipboard?.writeText(btn.dataset.cmd ?? "").catch(() => {});
+			btn.setAttribute("data-copied", "true");
+			window.clearTimeout(resetTimer);
+			resetTimer = window.setTimeout(() => {
+				btn.removeAttribute("data-copied");
+			}, 1600);
+		});
+	}
+</script>

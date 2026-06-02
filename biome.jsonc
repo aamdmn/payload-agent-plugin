@@ -7,6 +7,6 @@
     "ultracite/biome/vitest"
   ],
   "files": {
-    "includes": ["!dev/app/(payload)", "!dev/payload-types.ts"]
+    "includes": ["!dev/app/(payload)", "!dev/payload-types.ts", "!site"]
   }
 }

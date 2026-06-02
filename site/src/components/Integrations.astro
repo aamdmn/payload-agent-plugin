@@ -1,0 +1,123 @@
+---
+/*
+ * Integrations section — "split ledger" showing the two pluggable surfaces:
+ * Chat SDK (channels) and TanStack AI (models). Monochrome brand marks live in
+ * /public/logos and flip to light via `dark:invert` so color stays in the product,
+ * not the chrome (see DESIGN.md). Static; columns stack on mobile.
+ */
+const channels = [
+	{ name: "Telegram", src: "/logos/chat/telegram.svg" },
+	{ name: "WhatsApp", src: "/logos/chat/whatsapp.svg" },
+	{ name: "Slack", src: "/logos/chat/slack.svg" },
+	{ name: "Discord", src: "/logos/chat/discord.svg" },
+	{ name: "Microsoft Teams", src: "/logos/chat/teams.svg" },
+	{ name: "Google Chat", src: "/logos/chat/google-chat.svg" },
+	{ name: "iMessage", src: "/logos/chat/imessage.svg" },
+	{ name: "Messenger", src: "/logos/chat/messenger.svg" },
+];
+
+const models = [
+	{ name: "OpenAI", src: "/logos/ai/openai.svg" },
+	{ name: "Anthropic", src: "/logos/ai/anthropic.svg" },
+	{ name: "Gemini", src: "/logos/ai/gemini.svg" },
+	{ name: "Grok", src: "/logos/ai/grok.svg" },
+	{ name: "Groq", src: "/logos/ai/groq.svg" },
+	{ name: "Ollama", src: "/logos/ai/ollama.svg" },
+	{ name: "OpenRouter", src: "/logos/ai/openrouter.svg" },
+];
+---
+
+<section class="mx-auto w-full max-w-[1320px] px-6">
+	<div
+		class="flex flex-col items-center gap-16 border-t border-hairline py-24 max-md:gap-12 max-md:py-16"
+	>
+		<div class="flex max-w-[780px] flex-col items-center gap-5">
+			<p
+				class="font-mono text-xs font-medium uppercase tracking-[0.08em] text-accent"
+			>
+				Integrations
+			</p>
+			<h2
+				class="text-center font-sans text-[40px] font-light leading-[1.1] tracking-[-0.015em] max-md:text-3xl"
+			>
+				Plug in any channel.<br />Bring any model.
+			</h2>
+			<p
+				class="max-w-[600px] text-center text-[18px] leading-[28px] text-secondary"
+			>
+				Chat SDK carries the conversation; TanStack AI supplies the brain. Swap
+				either side without rewriting your agent.
+			</p>
+		</div>
+
+		<div class="flex w-full max-w-[1080px] flex-col md:flex-row md:items-stretch">
+			<div
+				class="flex flex-1 flex-col items-center gap-7 pb-12 md:px-14 md:pb-0"
+			>
+				<div class="flex flex-col items-center gap-2.5">
+					<p
+						class="font-mono text-xs font-medium uppercase tracking-[0.08em] text-secondary"
+					>
+						Chat SDK
+					</p>
+					<h3 class="text-center text-[20px] font-normal tracking-[-0.01em]">
+						Lives where your team works
+					</h3>
+				</div>
+				<div class="flex w-full flex-wrap justify-center gap-y-6">
+					{
+						channels.map((c) => (
+							<div class="flex basis-1/4 items-center justify-center">
+								<img
+									src={c.src}
+									alt={c.name}
+									loading="lazy"
+									decoding="async"
+									class="h-7 w-auto max-w-[88px] object-contain dark:invert"
+								/>
+							</div>
+						))
+					}
+				</div>
+				<p class="max-w-[300px] text-center text-sm text-secondary">
+					Plus GitHub, Linear, and custom adapters.
+				</p>
+			</div>
+
+			<div class="hidden w-px self-stretch bg-hairline md:block"></div>
+
+			<div
+				class="flex flex-1 flex-col items-center gap-7 border-t border-hairline pt-12 md:border-t-0 md:px-14 md:pt-0"
+			>
+				<div class="flex flex-col items-center gap-2.5">
+					<p
+						class="font-mono text-xs font-medium uppercase tracking-[0.08em] text-secondary"
+					>
+						TanStack AI
+					</p>
+					<h3 class="text-center text-[20px] font-normal tracking-[-0.01em]">
+						Bring your own model
+					</h3>
+				</div>
+				<div class="flex w-full flex-wrap justify-center gap-y-6">
+					{
+						models.map((m) => (
+							<div class="flex basis-1/4 items-center justify-center">
+								<img
+									src={m.src}
+									alt={m.name}
+									loading="lazy"
+									decoding="async"
+									class="h-7 w-auto max-w-[88px] object-contain dark:invert"
+								/>
+							</div>
+						))
+					}
+				</div>
+				<p class="max-w-[300px] text-center text-sm text-secondary">
+					Plus 300+ models via OpenRouter.
+				</p>
+			</div>
+		</div>
+	</div>
+</section>
