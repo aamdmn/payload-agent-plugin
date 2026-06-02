@@ -1,0 +1,99 @@
+---
+/*
+ * Config code window — centered, compact, with monochrome syntax highlighting.
+ * Per DESIGN.md the code stays black & white: tokens vary by weight/opacity of
+ * --fg (theme-adaptive via color-mix), never by hue. A tiny lexer classifies the
+ * fixed snippet; function calls and object keys are told apart by lookahead.
+ */
+const TOKEN_RE =
+	/(\/\/[^\n]*)|("(?:[^"\\]|\\.)*")|\b(import|from|export|default|const|return|await|new|true|false|null)\b|([{}()\[\].;:,])|(\s+)|([A-Za-z_$][\w$]*)|(\S)/g;
+
+type Token = { text: string; type: string };
+
+const CLS: Record<string, string> = {
+	comment: "text-fg/35 italic",
+	string: "text-fg/55",
+	keyword: "font-medium text-fg",
+	punc: "text-fg/35",
+	fn: "text-fg/90",
+	prop: "text-fg/60",
+	ident: "text-fg/75",
+	other: "text-fg/45",
+};
+
+function tokenize(src: string): Token[] {
+	const out: Token[] = [];
+	for (const m of src.matchAll(TOKEN_RE)) {
+		let type = "other";
+		if (m[1]) {
+			type = "comment";
+		} else if (m[2]) {
+			type = "string";
+		} else if (m[3]) {
+			type = "keyword";
+		} else if (m[4]) {
+			type = "punc";
+		} else if (m[5]) {
+			type = "space";
+		} else if (m[6]) {
+			type = "ident";
+		}
+		out.push({ text: m[0], type });
+	}
+	for (let i = 0; i < out.length; i++) {
+		if (out[i].type !== "ident") {
+			continue;
+		}
+		let j = i + 1;
+		while (j < out.length && out[j].type === "space") {
+			j++;
+		}
+		const next = out[j];
+		if (next?.text === "(") {
+			out[i].type = "fn";
+		} else if (next?.text === ":") {
+			out[i].type = "prop";
+		}
+	}
+	return out;
+}
+
+const snippet = `import { anthropicText } from "@tanstack/ai-anthropic";
+import { createTelegramAdapter } from "@chat-adapter/telegram";
+import { payloadAgentPlugin } from "payload-agent";
+
+export default buildConfig({
+  plugins: [
+    payloadAgentPlugin({
+      adapters: { telegram: createTelegramAdapter() },
+      agent: {
+        adapter: anthropicText("claude-sonnet-4-6"),
+        systemPrompt: "Be concise. No emojis.",
+      },
+    }),
+  ],
+});`;
+
+const tokens = tokenize(snippet);
+---
+
+<section class="mx-auto w-full max-w-[1320px] px-6">
+	<div class="border-t border-hairline py-24 max-md:py-16">
+		<div
+			class="mx-auto w-full max-w-[600px] overflow-hidden rounded-xl border border-hairline bg-surface"
+		>
+			<div
+				class="flex items-center gap-[7px] border-b border-hairline px-4 py-[13px]"
+			>
+				<span class="h-[11px] w-[11px] rounded-full bg-hairline"></span>
+				<span class="h-[11px] w-[11px] rounded-full bg-hairline"></span>
+				<span class="h-[11px] w-[11px] rounded-full bg-hairline"></span>
+				<span class="ml-[10px] font-mono text-xs text-muted">
+					payload.config.ts
+				</span>
+			</div>
+			<pre
+				class="m-0 overflow-x-auto whitespace-pre p-5 font-mono text-[13px] leading-[1.7] text-fg"><code>{tokens.map((t) => (t.type === "space" ? t.text : <span class={CLS[t.type]}>{t.text}</span>))}</code></pre>
+		</div>
+	</div>
+</section>

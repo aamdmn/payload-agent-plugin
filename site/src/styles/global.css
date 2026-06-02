@@ -1,0 +1,91 @@
+@import "tailwindcss";
+
+/*
+ * payload-agent — design system. See site/DESIGN.md.
+ * Light is the default canvas; [data-theme="dark"] (set by the no-flash script) is pure black.
+ * Dark variant is driven off that attribute so the existing toggle powers Tailwind's `dark:`.
+ */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+@theme inline {
+	--color-bg: var(--bg);
+	--color-fg: var(--fg);
+	--color-secondary: var(--secondary);
+	--color-muted: var(--muted);
+	--color-hairline: var(--hairline);
+	--color-surface: var(--surface);
+	--color-accent: var(--accent);
+
+	--font-sans: "Geist Variable", -apple-system, BlinkMacSystemFont, "Segoe UI",
+		sans-serif;
+	--font-mono: "Geist Mono Variable", ui-monospace, SFMono-Regular, Menlo,
+		monospace;
+	--font-display: "Inter Variable", "Geist Variable", -apple-system,
+		BlinkMacSystemFont, sans-serif;
+}
+
+:root {
+	--bg: #ffffff;
+	--fg: #000000;
+	--secondary: #666666;
+	--muted: #999999;
+	--hairline: #eaeaea;
+	--surface: #fafafa;
+	--accent: #0b5fff;
+}
+
+[data-theme="dark"] {
+	--bg: #000000;
+	--fg: #fafafa;
+	--secondary: #a1a1a1;
+	--muted: #6b6b6b;
+	--hairline: #1c1c1c;
+	--surface: #0b0b0b;
+	--accent: #5e9eff;
+}
+
+@layer base {
+	html {
+		scroll-behavior: smooth;
+	}
+
+	body {
+		background: var(--bg);
+		color: var(--fg);
+		font-family: var(--font-sans);
+		-webkit-font-smoothing: antialiased;
+		-moz-osx-font-smoothing: grayscale;
+		text-rendering: optimizeLegibility;
+		font-synthesis: none;
+	}
+
+	::selection {
+		background: var(--accent);
+		color: #ffffff;
+	}
+}
+
+@keyframes rise {
+	from {
+		opacity: 0;
+		transform: translateY(8px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+.rise {
+	animation: rise 0.5s ease both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	html {
+		scroll-behavior: auto;
+	}
+
+	.rise {
+		animation: none;
+	}
+}

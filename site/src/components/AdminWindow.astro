@@ -1,0 +1,198 @@
+---
+/*
+ * Static Payload admin window for the hero demo — a faithful recreation of the real
+ * admin (Pages / Home, Stats block) used as the full-width backdrop the iPhone + Code
+ * Mode terminal float over. Light + dark palettes follow the site theme (data-theme).
+ * Content is left-weighted and the window clips like a scrollable admin viewport, so
+ * the right side stays clear for the phone. Taller than the phone on purpose.
+ */
+const sidebar = [
+	{
+		label: "Globals",
+		items: [{ name: "Header" }, { name: "Footer" }],
+	},
+	{
+		label: "Commerce",
+		items: [
+			{ name: "Orders" },
+			{ name: "Products" },
+			{ name: "Variant Types" },
+			{ name: "Categories" },
+			{ name: "Stock Notifications" },
+		],
+	},
+	{
+		label: "Content",
+		items: [{ name: "Pages", active: true }, { name: "Media" }],
+	},
+	{
+		label: "Admin",
+		items: [{ name: "Users" }],
+	},
+];
+
+const blocks = [
+	{ n: "02", name: "50-50" },
+	{ n: "03", name: "Featured Products" },
+	{ n: "04", name: "Marquee" },
+	{ n: "05", name: "Player Spotlight" },
+	{ n: "06", name: "USPs" },
+	{ n: "07", name: "50-50" },
+];
+---
+
+<div
+	class="w-full overflow-hidden rounded-[14px] border border-[#eaeaea] bg-white shadow-[0_24px_60px_-30px_rgba(0,0,0,0.35)] dark:border-[#232323] dark:bg-[#0c0c0c]"
+	aria-hidden="true"
+>
+	<div
+		class="flex items-center gap-3 border-b border-[#eaeaea] bg-[#fafafa] px-4 py-3 dark:border-[#232323] dark:bg-[#161616]"
+	>
+		<span class="h-[11px] w-[11px] rounded-full bg-[#e1e1e1] dark:bg-[#2a2a2a]"></span>
+		<span class="h-[11px] w-[11px] rounded-full bg-[#e1e1e1] dark:bg-[#2a2a2a]"></span>
+		<span class="h-[11px] w-[11px] rounded-full bg-[#e1e1e1] dark:bg-[#2a2a2a]"></span>
+		<span class="ml-1 font-mono text-xs text-[#999] dark:text-[#777]">
+			payload.app / Pages / Home
+		</span>
+	</div>
+
+	<div class="relative h-[724px] overflow-hidden bg-white dark:bg-[#0c0c0c]">
+		<div class="flex h-full font-sans text-black dark:text-[#ededed]">
+			<aside
+				class="flex w-[176px] shrink-0 flex-col gap-[14px] border-r border-[#ececec] bg-[#fafafa] px-[14px] py-4 dark:border-[#1e1e1e] dark:bg-[#0f0f0f]"
+			>
+				{
+					sidebar.map((group) => (
+						<div class="flex flex-col gap-1.5">
+							<span class="text-[10px] font-medium tracking-[0.03em] text-[#a3a3a3] dark:text-[#6a6a6a]">
+								{group.label}
+							</span>
+							{group.items.map((item) => (
+								<span
+									class:list={[
+										"text-xs",
+										item.active
+											? "font-semibold text-black dark:text-white"
+											: "text-[#555] dark:text-[#9a9a9a]",
+									]}
+								>
+									{item.name}
+								</span>
+							))}
+						</div>
+					))
+				}
+
+				<div class="mt-auto flex items-center gap-2 pt-2 text-[#9a9a9a] dark:text-[#666]">
+					<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><path d="M16 17l5-5-5-5M21 12H9"></path></svg>
+				</div>
+			</aside>
+
+			<div class="min-w-0 flex-1 overflow-hidden px-7 py-[18px]">
+				<div class="max-w-[760px]">
+					<div class="flex items-center justify-between">
+						<span class="text-[11px] text-[#aaa] dark:text-[#777]">Pages / Home</span>
+						<div class="flex items-center gap-2">
+							<div class="flex items-center gap-1 rounded border border-[#e6e6e6] px-[7px] py-[3px] text-[11px] text-[#555] dark:border-[#2a2a2a] dark:text-[#aaa]">
+								<span>Locale: English</span>
+								<svg class="text-[#999] dark:text-[#777]" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"></path></svg>
+							</div>
+							<span class="h-[18px] w-[18px] rounded-full bg-[#e6e6e6] dark:bg-[#2a2a2a]"></span>
+						</div>
+					</div>
+
+					<div class="mt-3 flex items-center justify-between">
+						<span class="text-2xl font-medium tracking-[-0.01em]">Home</span>
+						<div class="flex items-center gap-2">
+							<svg class="text-[#bbb] dark:text-[#666]" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+							<span class="rounded bg-black px-3 py-1.5 text-xs font-medium text-white dark:bg-[#f4f4f5] dark:text-[#111]">Publish changes</span>
+						</div>
+					</div>
+
+					<div class="mt-4 grid grid-cols-[1fr_180px] gap-4">
+						<div class="flex flex-col gap-[5px]">
+							<span class="text-[11px] text-[#888]">Title <span class="text-[#e5484d]">*</span></span>
+							<div class="flex items-center rounded border border-[#e0e0e0] bg-white px-[9px] py-[7px] text-xs text-black dark:border-[#2b2b2b] dark:bg-[#161616] dark:text-[#eee]">Home</div>
+						</div>
+						<div class="flex flex-col gap-[5px]">
+							<span class="text-[11px] text-[#888]">Slug <span class="text-[#e5484d]">*</span></span>
+							<div class="flex items-center rounded border border-[#e0e0e0] bg-white px-[9px] py-[7px] text-xs text-[#777] dark:border-[#2b2b2b] dark:bg-[#161616] dark:text-[#888]">home</div>
+						</div>
+					</div>
+
+					<div class="mt-5 flex items-end gap-5 border-b border-[#ececec] dark:border-[#1e1e1e]">
+						<span class="pb-2 text-[13px] text-[#999] dark:text-[#777]">Hero</span>
+						<span class="border-b-2 border-black pb-2 text-[13px] font-medium text-black dark:border-white dark:text-white">Content</span>
+						<span class="pb-2 text-[13px] text-[#999] dark:text-[#777]">SEO</span>
+					</div>
+
+					<div class="flex flex-col gap-[10px] pt-4">
+						<div class="flex items-center justify-between">
+							<span class="text-sm font-medium">Layout <span class="text-[#e5484d]">*</span></span>
+							<span class="text-[11px] text-[#aaa] dark:text-[#777]">Collapse All&nbsp;&nbsp;Show All</span>
+						</div>
+
+						<div class="overflow-hidden rounded border border-[#e6e6e6] dark:border-[#232323]">
+							<div class="flex items-center gap-2 border-b border-[#ececec] bg-[#f7f7f7] px-[11px] py-[9px] dark:border-[#232323] dark:bg-[#161616]">
+								<span class="font-mono text-[11px] font-medium text-[#bbb] dark:text-[#555]">::</span>
+								<span class="font-mono text-[11px] font-medium text-[#999] dark:text-[#777]">01</span>
+								<span class="text-xs font-medium text-black dark:text-[#eee]">Stats / Social Proof</span>
+								<span class="text-[11px] text-[#bbb] dark:text-[#666]">Untitled</span>
+							</div>
+							<div class="flex flex-col gap-[10px] p-[14px]">
+								<div class="flex flex-col gap-[10px] rounded border border-[#ececec] p-3 dark:border-[#262626]">
+									<div class="flex items-center gap-[7px]">
+										<span class="font-mono text-[10px] font-medium text-[#bbb] dark:text-[#555]">::</span>
+										<span class="text-[11px] font-medium text-[#333] dark:text-[#ccc]">Item 01</span>
+									</div>
+									<div class="grid grid-cols-[1fr_1fr] gap-3">
+										<div class="flex flex-col gap-[5px]">
+											<span class="text-[11px] text-[#888]">Value <span class="text-[#e5484d]">*</span></span>
+											<div class="flex items-center rounded border border-[#e0e0e0] bg-white px-[9px] py-[7px] text-xs text-black dark:border-[#2b2b2b] dark:bg-[#161616] dark:text-[#eee]">1 000+</div>
+										</div>
+										<div class="flex flex-col gap-[5px]">
+											<span class="text-[11px] text-[#888]">Label <span class="text-[#e5484d]">*</span> <span class="text-[#bbb] dark:text-[#666]">— English</span></span>
+											<div class="flex items-center rounded border border-[#e0e0e0] bg-white px-[9px] py-[7px] text-xs text-black dark:border-[#2b2b2b] dark:bg-[#161616] dark:text-[#eee]">Happy customers</div>
+										</div>
+									</div>
+									<label class="flex cursor-pointer items-center gap-[7px] select-none">
+										<input type="checkbox" checked tabindex="-1" class="peer sr-only" />
+										<span class="flex h-[15px] w-[15px] items-center justify-center rounded-[3px] border border-[#cfcfcf] text-transparent transition-colors peer-checked:border-black peer-checked:bg-black peer-checked:text-white dark:border-[#3a3a3a] dark:peer-checked:border-[#f4f4f5] dark:peer-checked:bg-[#f4f4f5] dark:peer-checked:text-[#111]">
+											<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"></path></svg>
+										</span>
+										<span class="text-xs text-black dark:text-[#eee]">Accent color</span>
+									</label>
+								</div>
+
+								<div class="flex items-center gap-[7px] rounded border border-[#ececec] px-[11px] py-[9px] dark:border-[#262626]">
+									<span class="font-mono text-[10px] font-medium text-[#bbb] dark:text-[#555]">::</span>
+									<span class="text-[11px] font-medium text-[#333] dark:text-[#ccc]">Item 02</span>
+									<span class="text-[11px] text-[#bbb] dark:text-[#666]">4.9 ★ · Google rating</span>
+								</div>
+								<div class="flex items-center gap-[7px] rounded border border-[#ececec] px-[11px] py-[9px] dark:border-[#262626]">
+									<span class="font-mono text-[10px] font-medium text-[#bbb] dark:text-[#555]">::</span>
+									<span class="text-[11px] font-medium text-[#333] dark:text-[#ccc]">Item 03</span>
+									<span class="text-[11px] text-[#bbb] dark:text-[#666]">48h · Order dispatch</span>
+								</div>
+							</div>
+						</div>
+
+						{
+							blocks.map((b) => (
+								<div class="flex items-center justify-between rounded border border-[#e6e6e6] px-[11px] py-[10px] dark:border-[#232323]">
+									<div class="flex items-center gap-2">
+										<span class="font-mono text-[11px] font-medium text-[#bbb] dark:text-[#555]">::</span>
+										<span class="font-mono text-[11px] font-medium text-[#999] dark:text-[#777]">{b.n}</span>
+										<span class="text-xs font-medium text-black dark:text-[#eee]">{b.name}</span>
+										<span class="text-[11px] text-[#bbb] dark:text-[#666]">Untitled</span>
+									</div>
+									<svg class="text-[#bbb] dark:text-[#555]" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"></path></svg>
+								</div>
+							))
+						}
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+</div>
