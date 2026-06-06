@@ -50,7 +50,16 @@ export default buildConfig({
 });
 ```
 
-Set your API keys in environment variables and start chatting with your bot.
+Set the required environment variables:
+
+- `ANTHROPIC_API_KEY` — model provider key (`OPENAI_API_KEY` if you swapped the
+  provider)
+- `TELEGRAM_BOT_TOKEN` — bot token from [@BotFather](https://t.me/botfather)
+
+On a long-running host (local dev, Railway, a VPS, Docker) that is all you need:
+the Telegram adapter long-polls for updates, so there is no webhook to set up.
+Start your app and message the bot. A serverless deploy (Vercel, Lambda) needs
+one extra step — see [Webhooks (serverless)](#webhooks-serverless).
 
 ## What the Agent Can Do
 
@@ -212,6 +221,35 @@ payloadAgentPlugin({
 Install the adapter you choose (`@chat-adapter/state-pg` or
 `@chat-adapter/state-redis`). When no `state` is configured in production, the
 plugin logs a warning.
+
+## Webhooks (serverless)
+
+The Telegram adapter picks its transport from the runtime:
+
+- **Long-running host** (local dev, Railway, Render, Fly, a VPS, Docker): it
+  long-polls Telegram. Nothing to configure beyond `TELEGRAM_BOT_TOKEN`.
+- **Serverless host** (Vercel, AWS Lambda, Netlify, Cloud Run): long-polling
+  can't run, so updates arrive by webhook. The plugin serves that endpoint at
+  `POST /api/agent/webhooks/<platform>`, where `<platform>` is the key you used
+  in `adapters` (`telegram` here) and `/api` is Payload's default API route.
+
+The adapter verifies inbound webhooks but does not register the URL for you.
+Point Telegram at your endpoint once, after deploying:
+
+```bash
+curl "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/setWebhook" \
+  --data-urlencode "url=https://<your-domain>/api/agent/webhooks/telegram" \
+  --data-urlencode "secret_token=$TELEGRAM_WEBHOOK_SECRET_TOKEN"
+```
+
+Set `TELEGRAM_WEBHOOK_SECRET_TOKEN` to a random string in both the deployment
+environment and the call above; the adapter checks it on every request.
+**Without it, verification is disabled and any caller that finds the URL can
+drive the agent** — which can write to your database — so treat the secret as
+required in production.
+
+Other platforms work the same way: same endpoint path, each with its own bot
+token and signing secret. See the [Chat SDK docs](https://www.npmjs.com/package/chat).
 
 ## Supported Platforms
 
