@@ -150,6 +150,37 @@ function throwPayloadToolError(
   );
 }
 
+const BYTES_PER_KB = 1000;
+
+/**
+ * Cap on the serialized size of a single read result handed back to the model.
+ * A wide read with populated relationships can balloon to megabytes -- hundreds
+ * of thousands of tokens -- which stalls the turn and runs up cost. Past this we
+ * reject with a recoverable error telling the agent to narrow the query.
+ */
+const MAX_READ_RESULT_BYTES = 100_000;
+
+/**
+ * Default relationship depth for the agent's reads. 0 returns relationship and
+ * upload fields as ids instead of populating the related documents, keeping
+ * results small; the agent can raise `depth` per call when it needs related
+ * fields inline.
+ */
+const DEFAULT_READ_DEPTH = 0;
+
+/** Reject a read whose serialized result is too large to feed back to the model. */
+function assertReadResultSize(value: unknown, narrowHint: string): void {
+  const size = JSON.stringify(value)?.length ?? 0;
+  if (size <= MAX_READ_RESULT_BYTES) {
+    return;
+  }
+  const sizeKb = Math.round(size / BYTES_PER_KB);
+  const limitKb = Math.round(MAX_READ_RESULT_BYTES / BYTES_PER_KB);
+  throw new Error(
+    `Result too large (${sizeKb}KB, limit ${limitKb}KB). ${narrowHint}`
+  );
+}
+
 const readLocaleInput = z
   .string()
   .optional()
@@ -160,6 +191,13 @@ const fallbackLocaleInput = z
   .optional()
   .describe(
     "Pass 'false' to disable fallback and read only this locale's own values"
+  );
+
+const depthInput = z
+  .number()
+  .optional()
+  .describe(
+    "Relationship depth to populate (default 0: relationship and upload fields come back as ids). Raise only when you need related fields inline."
   );
 
 const writeLocaleInput = z
@@ -230,6 +268,7 @@ const findDefinition = toolDefinition({
       .record(z.string(), z.boolean())
       .optional()
       .describe("Select specific fields to reduce payload size"),
+    depth: depthInput,
     locale: readLocaleInput,
     fallbackLocale: fallbackLocaleInput,
   }),
@@ -251,6 +290,7 @@ const findByIDDefinition = toolDefinition({
       .record(z.string(), z.boolean())
       .optional()
       .describe("Select specific fields to reduce payload size"),
+    depth: depthInput,
     locale: readLocaleInput,
     fallbackLocale: fallbackLocaleInput,
   }),
@@ -342,6 +382,7 @@ const findGlobalDefinition = toolDefinition({
       .record(z.string(), z.boolean())
       .optional()
       .describe("Select specific fields to reduce payload size"),
+    depth: depthInput,
     locale: readLocaleInput,
     fallbackLocale: fallbackLocaleInput,
   }),
@@ -527,6 +568,7 @@ export function createPayloadTools(
         page,
         sort,
         select,
+        depth,
         locale,
         fallbackLocale,
       }) => {
@@ -538,6 +580,7 @@ export function createPayloadTools(
             limit,
             page,
             sort,
+            depth: depth ?? DEFAULT_READ_DEPTH,
             select: select as SelectType | undefined,
             ...localeArgs(locale, fallbackLocale),
             ...accessArgs,
@@ -549,12 +592,17 @@ export function createPayloadTools(
             await decodeRichText(fields, doc);
           }
 
-          return {
+          const output = {
             docs,
             totalDocs: result.totalDocs,
             totalPages: result.totalPages,
             page: result.page ?? 1,
           };
+          assertReadResultSize(
+            output,
+            "Narrow it: add a where filter, keep depth at 0 so relationships stay as ids, select fewer fields, or lower limit and page through."
+          );
+          return output;
         } catch (error) {
           throwPayloadToolError(
             "find",
@@ -573,12 +621,13 @@ export function createPayloadTools(
     ),
 
     findByIDDefinition.server(
-      async ({ collection, id, select, locale, fallbackLocale }) => {
+      async ({ collection, id, select, depth, locale, fallbackLocale }) => {
         assertCollectionAllowed(collection, accessible);
         try {
           const doc = await payload.findByID({
             collection: collection as AnyCollection,
             id,
+            depth: depth ?? DEFAULT_READ_DEPTH,
             select: select as SelectType | undefined,
             ...localeArgs(locale, fallbackLocale),
             ...accessArgs,
@@ -588,6 +637,10 @@ export function createPayloadTools(
           await decodeRichText(
             getCollectionFields(payload, collection),
             result
+          );
+          assertReadResultSize(
+            result,
+            "Reduce it: select fewer fields, or keep depth at 0 so relationships stay as ids."
           );
           return result;
         } catch (error) {
@@ -734,11 +787,12 @@ export function createPayloadTools(
   if (hasGlobals) {
     tools.push(
       findGlobalDefinition.server(
-        async ({ slug, select, locale, fallbackLocale }) => {
+        async ({ slug, select, depth, locale, fallbackLocale }) => {
           assertGlobalAllowed(slug, accessibleGlobals);
           try {
             const doc = await payload.findGlobal({
               slug: slug as AnyGlobal,
+              depth: depth ?? DEFAULT_READ_DEPTH,
               select: select as SelectType | undefined,
               ...localeArgs(locale, fallbackLocale),
               ...accessArgs,
@@ -746,6 +800,10 @@ export function createPayloadTools(
 
             const result = doc as Record<string, unknown>;
             await decodeRichText(getGlobalFields(payload, slug), result);
+            assertReadResultSize(
+              result,
+              "Reduce it: select fewer fields, or keep depth at 0 so relationships stay as ids."
+            );
             return result;
           } catch (error) {
             throwPayloadToolError(

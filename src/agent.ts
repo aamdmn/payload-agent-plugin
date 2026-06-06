@@ -388,7 +388,7 @@ export function createAgent(config: AgentConfig): Agent {
     globalsSection,
     "",
     "Use the execute_typescript tool and call external_* functions to interact with Payload.",
-    "When calling find/findByID, use the select option to fetch only fields you need.",
+    "Query efficiently: pass a where filter so the database does the filtering instead of fetching a whole collection and filtering in code. Reads default to depth 0, so relationship and upload fields come back as ids -- raise depth only when you need related fields inline, otherwise fetch the related document by id with a narrow select. Use select, limit, and page to keep results small; oversized read results are rejected and you will have to narrow the query.",
     schemaGuidance,
     richTextGuidance,
     localeGuidance,
