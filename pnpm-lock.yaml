@@ -15,10 +15,10 @@ importers:
         specifier: 0.23.0
         version: 0.23.0
       '@tanstack/ai-code-mode':
-        specifier: ^0.1.23
+        specifier: 0.1.23
         version: 0.1.23(@tanstack/ai@0.23.0)(zod@4.4.3)
       '@tanstack/ai-isolate-node':
-        specifier: ^0.1.23
+        specifier: 0.1.23
         version: 0.1.23(@tanstack/ai-code-mode@0.1.23(@tanstack/ai@0.23.0)(zod@4.4.3))
       chat:
         specifier: ^4.29.0

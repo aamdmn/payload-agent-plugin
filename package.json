@@ -1,6 +1,6 @@
 {
   "name": "payload-agent",
-  "version": "0.7.1",
+  "version": "0.7.2",
   "description": "AI chat agent for Payload CMS - query and manage your content from Telegram, Slack, WhatsApp and more.",
   "keywords": [
     "payload",
@@ -142,8 +142,8 @@
   "dependencies": {
     "@chat-adapter/state-memory": "^4.29.0",
     "@tanstack/ai": "0.23.0",
-    "@tanstack/ai-code-mode": "^0.1.23",
-    "@tanstack/ai-isolate-node": "^0.1.23",
+    "@tanstack/ai-code-mode": "0.1.23",
+    "@tanstack/ai-isolate-node": "0.1.23",
     "chat": "^4.29.0",
     "zod": "^4.4.3"
   }
