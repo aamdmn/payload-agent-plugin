@@ -13,6 +13,7 @@ import {
 } from "./access.js";
 import { createConversationHistory } from "./conversation-history.js";
 import { loggingMiddleware } from "./logger.js";
+import { PAYLOAD_REFERENCE } from "./payload-guide.js";
 import type { TypesProvider } from "./schema-types.js";
 import {
   buildGlobalsDescription,
@@ -388,7 +389,7 @@ export function createAgent(config: AgentConfig): Agent {
     globalsSection,
     "",
     "Use the execute_typescript tool and call external_* functions to interact with Payload.",
-    "When calling find/findByID, use the select option to fetch only fields you need.",
+    PAYLOAD_REFERENCE,
     schemaGuidance,
     richTextGuidance,
     localeGuidance,

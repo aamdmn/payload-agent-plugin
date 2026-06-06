@@ -2,6 +2,21 @@
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-06-06
+
+### Added
+
+- Bundled a verified Payload query/data reference into the agent's system prompt so it queries and shapes data correctly without trial and error: the `where` operators, `depth`/`select` semantics, `sort`, the find result shape, and per-field-type data shapes (relationships/uploads, blocks with `blockType`, arrays, groups, named/unnamed tabs, select, date, point). Every fact is verified against the Payload source and rides in the prompt-cached prefix, so it costs tokens once per conversation (`src/payload-guide.ts`)
+- Added a `depth` option to `find`, `findByID`, and `findGlobal` so the agent can control relationship and upload population per call
+
+### Changed
+
+- Reads (`find` / `findByID` / `findGlobal`) now default to `depth: 0`: relationship and upload fields return as ids instead of fully populated documents, which keeps results small. Raise `depth` (or read the related document by id) when you need related fields inline
+
+### Fixed
+
+- Reject a read whose result exceeds ~100KB with a recoverable error telling the agent to narrow the query (where/select/limit/depth). A wide find that populated relationships could otherwise return megabytes -- one real query returned ~2.3MB / ~470k prompt tokens and stalled the turn for ~12 minutes
+
 ## [0.7.2] - 2026-06-06
 
 ### Fixed

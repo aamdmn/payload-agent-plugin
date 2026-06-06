@@ -21,6 +21,7 @@ interface StubGlobal {
 
 const NOT_ACCESSIBLE = /not accessible/;
 const WRITE_LIMIT_REACHED = /Write limit reached/;
+const RESULT_TOO_LARGE = /too large/i;
 
 const collections: StubCollection[] = [
   { slug: "posts", fields: [] },
@@ -355,6 +356,44 @@ describe("createPayloadTools service user", () => {
     const args = find.mock.calls[0][0] as Record<string, unknown>;
     expect(args.overrideAccess).toBe(false);
     expect(args.user).toBe(serviceUser);
+  });
+});
+
+describe("createPayloadTools read shaping", () => {
+  test("find defaults to depth 0 so relationships come back as ids", async () => {
+    const { find, payload } = stubPayload();
+    const tools = createPayloadTools(payload, { richText: "lexical" });
+
+    await getTool(tools, "find").execute({ collection: "posts" });
+
+    const args = find.mock.calls[0][0] as Record<string, unknown>;
+    expect(args.depth).toBe(0);
+  });
+
+  test("find forwards an explicit depth", async () => {
+    const { find, payload } = stubPayload();
+    const tools = createPayloadTools(payload, { richText: "lexical" });
+
+    await getTool(tools, "find").execute({ collection: "posts", depth: 2 });
+
+    const args = find.mock.calls[0][0] as Record<string, unknown>;
+    expect(args.depth).toBe(2);
+  });
+
+  test("find rejects an oversized result with a recoverable error", async () => {
+    const { find, payload } = stubPayload();
+    const huge = "x".repeat(200_000);
+    find.mockResolvedValueOnce({
+      docs: [{ blob: huge, id: "1" }],
+      page: 1,
+      totalDocs: 1,
+      totalPages: 1,
+    });
+    const tools = createPayloadTools(payload, { richText: "lexical" });
+
+    await expect(
+      getTool(tools, "find").execute({ collection: "posts" })
+    ).rejects.toThrow(RESULT_TOO_LARGE);
   });
 });
 
