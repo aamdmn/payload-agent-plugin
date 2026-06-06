@@ -97,7 +97,7 @@ one extra step — see [Webhooks (serverless)](#webhooks-serverless).
 | `count` | Count documents matching a filter |
 | `uploadFile` | Upload a file (a chat attachment or a URL) to an upload collection |
 
-The agent runs TypeScript through Code Mode, so it can compose multi-step operations in a single turn (e.g. find, filter in code, then create a summary document).
+The agent runs TypeScript through Code Mode, so it can compose multi-step operations in a single turn (e.g. read several collections, compute across them, then create a summary document). It ships with a built-in, source-verified reference to Payload's query API and field shapes, so it filters with `where`, controls `depth`, and writes data in the right shape. Reads default to `depth: 0` — relationship and upload fields come back as ids, and the agent raises `depth` when it needs related data inline.
 
 `delete` is off by default, and the agent is scoped to safe collections — see [Access control](#access-control).
 
