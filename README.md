@@ -20,13 +20,15 @@ Powered by [Chat SDK](https://www.npmjs.com/package/chat) for multi-platform mes
 
 ## Quick Start
 
-`payload-agent` ships the agent core. You also bring **one AI provider** and **one or more chat adapters** and pass instances of both into the plugin — so a working install is three packages. The example below uses Claude (Anthropic) and Telegram:
+`payload-agent` ships the agent core. You also bring **one AI provider** and **one or more chat adapters** and pass instances of both into the plugin. The example below uses Claude (Anthropic) and Telegram:
 
 ```bash
-pnpm add payload-agent @tanstack/ai-anthropic @chat-adapter/telegram
+pnpm add payload-agent @tanstack/ai-anthropic@^0.11.1 @chat-adapter/telegram zod@^4.4.3
 ```
 
-Prefer GPT? Swap the provider for `@tanstack/ai-openai @tanstack/ai-client`. For a different chat platform, swap the adapter for any `@chat-adapter/*` (see [Supported Platforms](#supported-platforms)).
+The provider and `zod` versions are pinned on purpose: `payload-agent` builds on `@tanstack/ai@0.23.0`, so a newer `@tanstack/ai-anthropic` or a mismatched `zod` breaks the install. See [Troubleshooting](#troubleshooting) before changing them.
+
+Prefer GPT? Swap the provider for `@tanstack/ai-openai@^0.10.4 @tanstack/ai-client`. For a different chat platform, swap the adapter for any `@chat-adapter/*` (see [Supported Platforms](#supported-platforms)).
 
 ```ts
 // payload.config.ts
@@ -49,6 +51,27 @@ export default buildConfig({
   ],
 });
 ```
+
+### Next.js config
+
+`payload-agent` runs Code Mode in an `esbuild` + `isolated-vm` sandbox — native,
+server-only packages that Next must not bundle. Add them to
+`serverExternalPackages` in your `next.config`:
+
+```ts
+// next.config.ts
+const nextConfig = {
+  serverExternalPackages: [
+    "@tanstack/ai-code-mode",
+    "@tanstack/ai-isolate-node",
+    "esbuild",
+    "isolated-vm",
+  ],
+};
+```
+
+Skip this and the app fails to boot with `Unknown module type` /
+`invalid utf-8 sequence` errors pointing at `esbuild`.
 
 Set the required environment variables:
 
@@ -283,6 +306,23 @@ instructions). It needs a model API key (`ANTHROPIC_API_KEY` or
 `OPENAI_API_KEY`), and it is kept out of the normal suite, so it never runs (or
 spends) unless you invoke it. Set `EVAL_MODEL` to pick the model (e.g.
 `claude-haiku-4-5`).
+
+## Troubleshooting
+
+**`Unknown module type` or `invalid utf-8 sequence` errors pointing at `esbuild`
+on boot.** Next is bundling the Code Mode sandbox. Add the
+`serverExternalPackages` entries from [Next.js config](#nextjs-config).
+
+**`Export buildBaseUsage doesn't exist` (or `toRunErrorRawEvent`) from
+`@tanstack/ai`.** Your `@tanstack/ai-anthropic` / `-openai` is newer than the
+`@tanstack/ai@0.23.0` this plugin builds on. Pin the provider to a compatible
+line: `@tanstack/ai-anthropic@^0.11.1` or `@tanstack/ai-openai@^0.10.4`.
+
+**Adapter type error mentioning two `chat` copies or a private
+`_subjectPromise`.** Your project resolves a different `zod` than the plugin, so
+`chat` is installed twice. Align `zod` to `^4.4.3`
+(`pnpm add zod@^4.4.3 && pnpm dedupe`) so the adapter and the plugin share one
+`chat`.
 
 ## License
 

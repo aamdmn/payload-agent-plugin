@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [0.7.2] - 2026-06-06
+
+### Fixed
+
+- Pinned `@tanstack/ai-code-mode` and `@tanstack/ai-isolate-node` to exact `0.1.23` (were `^0.1.23`). Fresh installs drifted to newer patches that require a newer `@tanstack/ai` than the pinned `0.23.0`, producing peer-dependency warnings and build breakage
+- Documented the `next.config` `serverExternalPackages` entries (`@tanstack/ai-code-mode`, `@tanstack/ai-isolate-node`, `esbuild`, `isolated-vm`) required so Next does not bundle the Code Mode sandbox; without them a fresh install fails to boot with `Unknown module type` / `invalid utf-8` errors
+- Pinned the AI provider (`@tanstack/ai-anthropic@^0.11.1`) and `zod@^4.4.3` in the quick-start install command and added a Troubleshooting section; the previously unpinned command pulled an incompatible `@tanstack/ai-anthropic` and a duplicate `zod`, breaking the build and the adapter types
+
 ## [0.7.1] - 2026-06-06
 
 ### Changed
