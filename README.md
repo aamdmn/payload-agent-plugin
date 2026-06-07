@@ -23,10 +23,10 @@ Powered by [Chat SDK](https://www.npmjs.com/package/chat) for multi-platform mes
 `payload-agent` ships the agent core. You bring **one AI provider** and **one or more chat adapters** and pass instances of both into the plugin. The example below uses Claude (Anthropic) and Telegram:
 
 ```bash
-pnpm add payload-agent @tanstack/ai-anthropic@^0.11 @chat-adapter/telegram zod
+pnpm add payload-agent @tanstack/ai-anthropic@^0.11 @chat-adapter/telegram
 ```
 
-The provider is pinned to a major line on purpose: `payload-agent` builds on a fixed `@tanstack/ai` (currently `0.23`), and a provider from a newer line pulls in a second, incompatible `@tanstack/ai`. `zod` and your chat adapter are shared with the plugin, so no version is needed there. See [AI providers](#ai-providers) and [Troubleshooting](#troubleshooting).
+The provider is the only thing you pin: `payload-agent` builds on a fixed `@tanstack/ai` (currently `0.23`), and a provider from a newer line pulls in a second, incompatible `@tanstack/ai`. Everything else is handled for you — `chat` comes from your adapter and `zod` ships inside `payload-agent`, both deduped automatically. See [AI providers](#ai-providers) and [Troubleshooting](#troubleshooting).
 
 Prefer GPT? Use `@tanstack/ai-openai@^0.10.4 @tanstack/ai-client` instead. For a different chat platform, swap the adapter for any `@chat-adapter/*` (see [Supported Platforms](#supported-platforms)).
 

@@ -4,7 +4,7 @@
 
 ### Breaking Changes
 
-- `chat` and `zod` are now **peer dependencies** instead of bundled dependencies. They are shared cores: every `@chat-adapter/*` pins `chat` exactly and the AI providers peer `zod`, so bundling our own copies produced a second `chat` (the `_subjectPromise` / "two copies of chat" adapter type error) whenever versions drifted. Now `payload-agent` uses the single copy your app and adapters resolve. **Migration:** add `zod` to your app if it is not already there (`pnpm add zod`), and keep all your `@chat-adapter/*` packages on one release line. This removes the need for a `pnpm.overrides.chat` workaround
+- `chat` is now a **peer dependency** instead of a bundled one. Every `@chat-adapter/*` pins `chat` exactly, so bundling our own copy produced a second `chat` with incompatible private types (the `_subjectPromise` / "two copies of chat" adapter error) whenever versions drifted. Now `payload-agent` uses the single copy your adapters resolve. **Migration:** keep all your `@chat-adapter/*` packages on one release line and remove any `pnpm.overrides.chat` workaround. You do not install `chat` (your adapter brings it) or `zod` (it stays bundled in `payload-agent`)
 
 ### Added
 
