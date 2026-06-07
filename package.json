@@ -1,6 +1,6 @@
 {
   "name": "payload-agent",
-  "version": "0.9.0",
+  "version": "0.10.0",
   "description": "AI chat agent for Payload CMS - query and manage your content from Telegram, Slack, WhatsApp and more.",
   "keywords": [
     "payload",
@@ -73,9 +73,9 @@
     "@playwright/test": "1.60.0",
     "@swc-node/register": "1.10.9",
     "@swc/cli": "0.6.0",
-    "@tanstack/ai-anthropic": "^0.11.1",
-    "@tanstack/ai-client": "^0.14.0",
-    "@tanstack/ai-openai": "^0.10.4",
+    "@tanstack/ai-anthropic": "^0.15.1",
+    "@tanstack/ai-client": "^0.16.3",
+    "@tanstack/ai-openai": "^0.14.1",
     "@types/node": "22.19.9",
     "@types/react": "19.2.15",
     "@types/react-dom": "19.2.3",
@@ -102,8 +102,8 @@
   "peerDependencies": {
     "@chat-adapter/telegram": "^4.29.0",
     "@payloadcms/richtext-lexical": "^3.37.0",
-    "@tanstack/ai-anthropic": "^0.11.1",
-    "@tanstack/ai-openai": "^0.10.4",
+    "@tanstack/ai-anthropic": "^0.15.1",
+    "@tanstack/ai-openai": "^0.14.1",
     "chat": "^4.0.0",
     "payload": "^3.37.0"
   },
@@ -152,9 +152,9 @@
   },
   "registry": "https://registry.npmjs.org/",
   "dependencies": {
-    "@tanstack/ai": "0.23.0",
-    "@tanstack/ai-code-mode": "0.1.23",
-    "@tanstack/ai-isolate-node": "0.1.23",
+    "@tanstack/ai": "0.28.0",
+    "@tanstack/ai-code-mode": "0.2.5",
+    "@tanstack/ai-isolate-node": "0.1.30",
     "zod": "^4.0.0"
   }
 }
