@@ -2,6 +2,22 @@
 
 ## [Unreleased]
 
+### Breaking Changes
+
+- `chat` is now a **peer dependency** instead of a bundled one. Every `@chat-adapter/*` pins `chat` exactly, so bundling our own copy produced a second `chat` with incompatible private types (the `_subjectPromise` / "two copies of chat" adapter error) whenever versions drifted. Now `payload-agent` uses the single copy your adapters resolve. **Migration:** keep all your `@chat-adapter/*` packages on one release line and remove any `pnpm.overrides.chat` workaround. You do not install `chat` (your adapter brings it) or `zod` (it stays bundled in `payload-agent`)
+
+### Added
+
+- `payload-agent/next` exports a `serverExternalPackages` array to spread into your `next.config`. It lists the Code Mode sandbox packages (`@tanstack/ai-code-mode`, `@tanstack/ai-isolate-node`, `esbuild`, `isolated-vm`) that Next must not bundle, so the list stays correct across upgrades without you hand-maintaining the names. `withPayload` merges it with its own entries, so the order of the config wrappers does not matter
+
+### Changed
+
+- The default in-memory state adapter is inlined (`src/memory-state.ts`) rather than imported from `@chat-adapter/state-memory`, so `payload-agent` carries no `@chat-adapter/*` runtime dependency and cannot introduce a second `chat` copy. Behavior is unchanged
+
+### Removed
+
+- Dropped the `@chat-adapter/state-memory` dependency (inlined as the default in-memory state)
+
 ## [0.8.0] - 2026-06-06
 
 ### Added

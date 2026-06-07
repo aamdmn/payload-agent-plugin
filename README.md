@@ -20,15 +20,15 @@ Powered by [Chat SDK](https://www.npmjs.com/package/chat) for multi-platform mes
 
 ## Quick Start
 
-`payload-agent` ships the agent core. You also bring **one AI provider** and **one or more chat adapters** and pass instances of both into the plugin. The example below uses Claude (Anthropic) and Telegram:
+`payload-agent` ships the agent core. You bring **one AI provider** and **one or more chat adapters** and pass instances of both into the plugin. The example below uses Claude (Anthropic) and Telegram:
 
 ```bash
-pnpm add payload-agent @tanstack/ai-anthropic@^0.11.1 @chat-adapter/telegram zod@^4.4.3
+pnpm add payload-agent @tanstack/ai-anthropic@^0.11 @chat-adapter/telegram
 ```
 
-The provider and `zod` versions are pinned on purpose: `payload-agent` builds on `@tanstack/ai@0.23.0`, so a newer `@tanstack/ai-anthropic` or a mismatched `zod` breaks the install. See [Troubleshooting](#troubleshooting) before changing them.
+The provider is the only thing you pin: `payload-agent` builds on a fixed `@tanstack/ai` (currently `0.23`), and a provider from a newer line pulls in a second, incompatible `@tanstack/ai`. Everything else is handled for you — `chat` comes from your adapter and `zod` ships inside `payload-agent`, both deduped automatically. See [AI providers](#ai-providers) and [Troubleshooting](#troubleshooting).
 
-Prefer GPT? Swap the provider for `@tanstack/ai-openai@^0.10.4 @tanstack/ai-client`. For a different chat platform, swap the adapter for any `@chat-adapter/*` (see [Supported Platforms](#supported-platforms)).
+Prefer GPT? Use `@tanstack/ai-openai@^0.10.4 @tanstack/ai-client` instead. For a different chat platform, swap the adapter for any `@chat-adapter/*` (see [Supported Platforms](#supported-platforms)).
 
 ```ts
 // payload.config.ts
@@ -55,23 +55,51 @@ export default buildConfig({
 ### Next.js config
 
 `payload-agent` runs Code Mode in an `esbuild` + `isolated-vm` sandbox — native,
-server-only packages that Next must not bundle. Add them to
-`serverExternalPackages` in your `next.config`:
+server-only packages that Next must not bundle. Spread the list it exports into
+`serverExternalPackages` in your `next.config`. Keeping the names in the package
+(not your config) means they stay correct when you upgrade:
 
 ```ts
 // next.config.ts
+import { withPayload } from "@payloadcms/next/withPayload";
+import { serverExternalPackages } from "payload-agent/next";
+
 const nextConfig = {
-  serverExternalPackages: [
-    "@tanstack/ai-code-mode",
-    "@tanstack/ai-isolate-node",
-    "esbuild",
-    "isolated-vm",
-  ],
+  serverExternalPackages, // or: [...serverExternalPackages, ...yourOwn]
 };
+
+export default withPayload(nextConfig);
 ```
 
-Skip this and the app fails to boot with `Unknown module type` /
+`withPayload` merges this with its own entries, so the order of the wrappers does
+not matter. Skip it and the app fails to boot with `Unknown module type` /
 `invalid utf-8 sequence` errors pointing at `esbuild`.
+
+### AI providers
+
+The agent's model adapter is any [TanStack AI](https://tanstack.com/ai) text
+provider — you install the provider package and pass its adapter in. Because the
+Code Mode sandbox pins `@tanstack/ai` to an exact version, install a provider on
+the matching line so your tree has a single `@tanstack/ai`:
+
+| Provider | Install | Import |
+| --- | --- | --- |
+| Anthropic (Claude) | `@tanstack/ai-anthropic@^0.11` | `import { anthropicText } from "@tanstack/ai-anthropic"` |
+| OpenAI (GPT) | `@tanstack/ai-openai@^0.10.4 @tanstack/ai-client` | `import { openaiText } from "@tanstack/ai-openai"` |
+
+```ts
+payloadAgentPlugin({
+  agent: { adapter: anthropicText("claude-sonnet-4-6") },
+  // ...
+});
+```
+
+`payload-agent` declares these providers as optional peer dependencies, so your
+package manager warns when an installed version falls outside the supported
+line. The current line is `@tanstack/ai@0.23` — installing `@tanstack/ai-anthropic`
+without a version pulls a newer line and breaks the build (see
+[Troubleshooting](#troubleshooting)). Other TanStack AI providers work the same
+way: install one on the `0.23` line and pass its `*Text` adapter.
 
 Set the required environment variables:
 
@@ -285,7 +313,7 @@ Any adapter from [Chat SDK](https://www.npmjs.com/package/chat) works — instal
 - Microsoft Teams
 - Google Chat
 
-Keep your `@chat-adapter/*` packages on the same release line as the `chat` core this plugin depends on (currently `4.x`) — adapters pin the core version exactly, so a mismatched one can pull in a second copy.
+Keep all your `@chat-adapter/*` packages on the same release line (currently `4.x`) — each pins the `chat` core exactly, so mixing lines pulls in a second copy. `payload-agent` declares `chat` as a peer dependency, so it shares the single copy your adapters resolve rather than adding its own.
 
 ## Requirements
 
@@ -314,15 +342,17 @@ on boot.** Next is bundling the Code Mode sandbox. Add the
 `serverExternalPackages` entries from [Next.js config](#nextjs-config).
 
 **`Export buildBaseUsage doesn't exist` (or `toRunErrorRawEvent`) from
-`@tanstack/ai`.** Your `@tanstack/ai-anthropic` / `-openai` is newer than the
-`@tanstack/ai@0.23.0` this plugin builds on. Pin the provider to a compatible
-line: `@tanstack/ai-anthropic@^0.11.1` or `@tanstack/ai-openai@^0.10.4`.
+`@tanstack/ai`.** Your `@tanstack/ai-*` provider is on a newer line than the
+`@tanstack/ai@0.23` `payload-agent` builds on, so two copies of `@tanstack/ai`
+ended up in your tree. Pin the provider to the matching line —
+`@tanstack/ai-anthropic@^0.11` or `@tanstack/ai-openai@^0.10.4` — then reinstall.
 
 **Adapter type error mentioning two `chat` copies or a private
-`_subjectPromise`.** Your project resolves a different `zod` than the plugin, so
-`chat` is installed twice. Align `zod` to `^4.4.3`
-(`pnpm add zod@^4.4.3 && pnpm dedupe`) so the adapter and the plugin share one
-`chat`.
+`_subjectPromise`.** Your `@chat-adapter/*` packages are on different release
+lines, so `chat` (which they pin exactly) is installed twice. Put them all on the
+same line (e.g. all `4.30.x`) and reinstall. `payload-agent` no longer bundles
+`chat` — it shares the single copy your adapters bring, so you should not need a
+`pnpm.overrides.chat` workaround.
 
 ## License
 

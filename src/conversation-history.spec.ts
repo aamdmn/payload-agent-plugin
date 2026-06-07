@@ -1,7 +1,7 @@
-import { createMemoryState } from "@chat-adapter/state-memory";
 import type { StateAdapter } from "chat";
 import { beforeEach, describe, expect, test } from "vitest";
 import { createConversationHistory } from "./conversation-history.js";
+import { createMemoryState } from "./memory-state.js";
 
 let state: StateAdapter;
 

@@ -12,7 +12,6 @@
  * skips, so running `vitest run --config vitest.eval.config.js` is safe and free.
  */
 import { randomUUID } from "node:crypto";
-import { createMemoryState } from "@chat-adapter/state-memory";
 import config from "@payload-config";
 import type { AnyTextAdapter } from "@tanstack/ai";
 import { anthropicText } from "@tanstack/ai-anthropic";
@@ -21,6 +20,7 @@ import type { Payload } from "payload";
 import { getPayload } from "payload";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { type AgentConfig, createAgent } from "../src/agent.js";
+import { createMemoryState } from "../src/memory-state.js";
 import { loadGeneratedTypes } from "../src/schema-types.js";
 
 const anthropicKey = process.env.ANTHROPIC_API_KEY;

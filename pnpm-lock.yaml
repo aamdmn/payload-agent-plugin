@@ -8,9 +8,6 @@ importers:
 
   .:
     dependencies:
-      '@chat-adapter/state-memory':
-        specifier: ^4.29.0
-        version: 4.29.0(zod@4.4.3)
       '@tanstack/ai':
         specifier: 0.23.0
         version: 0.23.0
@@ -20,11 +17,8 @@ importers:
       '@tanstack/ai-isolate-node':
         specifier: 0.1.23
         version: 0.1.23(@tanstack/ai-code-mode@0.1.23(@tanstack/ai@0.23.0)(zod@4.4.3))
-      chat:
-        specifier: ^4.29.0
-        version: 4.29.0(zod@4.4.3)
       zod:
-        specifier: ^4.4.3
+        specifier: ^4.0.0
         version: 4.4.3
     devDependencies:
       '@biomejs/biome':
@@ -78,6 +72,9 @@ importers:
       '@types/react-dom':
         specifier: 19.2.3
         version: 19.2.3(@types/react@19.2.15)
+      chat:
+        specifier: ^4.29.0
+        version: 4.29.0(zod@4.4.3)
       copyfiles:
         specifier: 2.4.1
         version: 2.4.1
@@ -467,10 +464,6 @@ packages:
 
   '@chat-adapter/shared@4.29.0':
     resolution: {integrity: sha512-ARqTDoHJHKN9rpytbFPJbNmqqx3fOg5xwsTZdlingQPAssOSeHDBdqrFJkgDhyCRGbmDtG09cuS0FkVzeoh2qg==}
-    engines: {node: '>=20'}
-
-  '@chat-adapter/state-memory@4.29.0':
-    resolution: {integrity: sha512-+L5LPj9VkyXFXAcfFlTvf2JihuFfQV5U9TfXDlQeG7k6NMEA8irt4a0c6MTxFP7OI5YENknVwRGzmcUubvEWSw==}
     engines: {node: '>=20'}
 
   '@chat-adapter/telegram@4.29.0':
@@ -6348,14 +6341,6 @@ snapshots:
       fontkitten: 1.0.3
 
   '@chat-adapter/shared@4.29.0(zod@4.4.3)':
-    dependencies:
-      chat: 4.29.0(zod@4.4.3)
-    transitivePeerDependencies:
-      - ai
-      - supports-color
-      - zod
-
-  '@chat-adapter/state-memory@4.29.0(zod@4.4.3)':
     dependencies:
       chat: 4.29.0(zod@4.4.3)
     transitivePeerDependencies:
