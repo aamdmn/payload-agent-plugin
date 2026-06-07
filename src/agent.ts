@@ -28,6 +28,30 @@ const MAX_AGENT_ITERATIONS = 10;
 const MIN_STREAM_VISIBLE_CHARS = 5;
 const DEFAULT_MAX_TOKENS = 4096;
 const DEFAULT_MAX_WRITES_PER_MESSAGE = 50;
+
+/**
+ * Map the generic per-call output-token cap to the provider's native
+ * `modelOptions` key. TanStack AI 0.28 moved the cap into opaque,
+ * provider-native `modelOptions`, and every provider spells it differently.
+ * Anthropic is the important case: its adapter defaults to only 1024 output
+ * tokens when unset, which truncates agent replies. Providers we don't map fall
+ * back to the adapter's own default (the cap is simply not applied for them).
+ */
+function buildModelOptions(
+  adapter: AnyTextAdapter,
+  maxOutputTokens: number
+): AnyTextAdapter["~types"]["providerOptions"] | undefined {
+  const providerName = (adapter as { name?: string }).name;
+  type ProviderOptions = AnyTextAdapter["~types"]["providerOptions"];
+
+  if (providerName === "anthropic") {
+    return { max_tokens: maxOutputTokens } as ProviderOptions;
+  }
+  if (providerName === "openai") {
+    return { max_output_tokens: maxOutputTokens } as ProviderOptions;
+  }
+  return;
+}
 const TOKEN_LIMIT_NOTICE =
   "\n\nResponse was truncated because the model hit its token limit. Ask me to continue from where I stopped.";
 
@@ -433,8 +457,8 @@ export function createAgent(config: AgentConfig): Agent {
         const response = await chat({
           adapter: config.adapter,
           agentLoopStrategy: maxIterations(MAX_AGENT_ITERATIONS),
-          maxTokens,
           messages,
+          modelOptions: buildModelOptions(config.adapter, maxTokens),
           middleware,
           stream: false,
           systemPrompts: prompt ? [...systemPrompts, prompt] : systemPrompts,
@@ -466,8 +490,8 @@ export function createAgent(config: AgentConfig): Agent {
         const rawStream = chat({
           adapter: config.adapter,
           agentLoopStrategy: maxIterations(MAX_AGENT_ITERATIONS),
-          maxTokens,
           messages,
+          modelOptions: buildModelOptions(config.adapter, maxTokens),
           middleware,
           systemPrompts: prompt ? [...systemPrompts, prompt] : systemPrompts,
           tools: [codeModeTool],

@@ -23,12 +23,12 @@ Powered by [Chat SDK](https://www.npmjs.com/package/chat) for multi-platform mes
 `payload-agent` ships the agent core. You bring **one AI provider** and **one or more chat adapters** and pass instances of both into the plugin. The example below uses Claude (Anthropic) and Telegram:
 
 ```bash
-pnpm add payload-agent @tanstack/ai-anthropic@^0.11 @chat-adapter/telegram
+pnpm add payload-agent @tanstack/ai-anthropic @chat-adapter/telegram
 ```
 
-The provider is the only thing you pin: `payload-agent` builds on a fixed `@tanstack/ai` (currently `0.23`), and a provider from a newer line pulls in a second, incompatible `@tanstack/ai`. Everything else is handled for you — `chat` comes from your adapter and `zod` ships inside `payload-agent`, both deduped automatically. See [AI providers](#ai-providers) and [Troubleshooting](#troubleshooting).
+No version pins: `payload-agent` builds on `@tanstack/ai 0.28` (the current line), which the latest `@tanstack/ai-anthropic` already targets, so it installs clean. `chat` comes from your adapter and `zod` ships inside `payload-agent`, both deduped automatically. (If a future provider release outpaces `payload-agent`, pin it to the supported line — see [AI providers](#ai-providers) and [Troubleshooting](#troubleshooting).)
 
-Prefer GPT? Use `@tanstack/ai-openai@^0.10.4 @tanstack/ai-client` instead. For a different chat platform, swap the adapter for any `@chat-adapter/*` (see [Supported Platforms](#supported-platforms)).
+Prefer GPT? Use `@tanstack/ai-openai @tanstack/ai-client` instead. For a different chat platform, swap the adapter for any `@chat-adapter/*` (see [Supported Platforms](#supported-platforms)).
 
 ```ts
 // payload.config.ts
@@ -84,8 +84,8 @@ the matching line so your tree has a single `@tanstack/ai`:
 
 | Provider | Install | Import |
 | --- | --- | --- |
-| Anthropic (Claude) | `@tanstack/ai-anthropic@^0.11` | `import { anthropicText } from "@tanstack/ai-anthropic"` |
-| OpenAI (GPT) | `@tanstack/ai-openai@^0.10.4 @tanstack/ai-client` | `import { openaiText } from "@tanstack/ai-openai"` |
+| Anthropic (Claude) | `@tanstack/ai-anthropic@^0.15` | `import { anthropicText } from "@tanstack/ai-anthropic"` |
+| OpenAI (GPT) | `@tanstack/ai-openai@^0.14 @tanstack/ai-client` | `import { openaiText } from "@tanstack/ai-openai"` |
 
 ```ts
 payloadAgentPlugin({
@@ -95,11 +95,13 @@ payloadAgentPlugin({
 ```
 
 `payload-agent` declares these providers as optional peer dependencies, so your
-package manager warns when an installed version falls outside the supported
-line. The current line is `@tanstack/ai@0.23` — installing `@tanstack/ai-anthropic`
-without a version pulls a newer line and breaks the build (see
-[Troubleshooting](#troubleshooting)). Other TanStack AI providers work the same
-way: install one on the `0.23` line and pass its `*Text` adapter.
+package manager warns if an installed version falls outside the supported line.
+The current line is `@tanstack/ai@0.28`, which the latest providers target — so
+installing `@tanstack/ai-anthropic` or `@tanstack/ai-openai` works without a
+version. If a future provider release outpaces `payload-agent`, the warning tells
+you; pin to the line in the table above (see [Troubleshooting](#troubleshooting)).
+Other TanStack AI providers work the same way: install one on the `0.28` line and
+pass its `*Text` adapter.
 
 Set the required environment variables:
 
@@ -343,9 +345,9 @@ on boot.** Next is bundling the Code Mode sandbox. Add the
 
 **`Export buildBaseUsage doesn't exist` (or `toRunErrorRawEvent`) from
 `@tanstack/ai`.** Your `@tanstack/ai-*` provider is on a newer line than the
-`@tanstack/ai@0.23` `payload-agent` builds on, so two copies of `@tanstack/ai`
+`@tanstack/ai@0.28` `payload-agent` builds on, so two copies of `@tanstack/ai`
 ended up in your tree. Pin the provider to the matching line —
-`@tanstack/ai-anthropic@^0.11` or `@tanstack/ai-openai@^0.10.4` — then reinstall.
+`@tanstack/ai-anthropic@^0.15` or `@tanstack/ai-openai@^0.14` — then reinstall.
 
 **Adapter type error mentioning two `chat` copies or a private
 `_subjectPromise`.** Your `@chat-adapter/*` packages are on different release

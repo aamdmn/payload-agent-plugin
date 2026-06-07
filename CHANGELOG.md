@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-06-07
+
+### Breaking Changes
+
+- Upgraded the bundled core to `@tanstack/ai@0.28` (from `0.23`; also `@tanstack/ai-code-mode@0.2.5` and `@tanstack/ai-isolate-node@0.1.30`), moving the supported AI-provider line up. **Migration:** if you pinned the AI provider, bump it to `@tanstack/ai-anthropic@^0.15` or `@tanstack/ai-openai@^0.14` — or drop the pin, since the latest provider now matches the bundled core and installs cleanly. This removes the `Export buildBaseUsage doesn't exist` error an out-of-line provider pin produced
+
+### Changed
+
+- `agent.maxTokens` is now applied through `@tanstack/ai` 0.28's provider-native `modelOptions` (mapped to each provider's own key). 0.28 removed the generic top-level token cap; without this, Anthropic's adapter would cap output at its 1024-token default
+
+## [0.9.0] - 2026-06-07
+
 ### Breaking Changes
 
 - `chat` is now a **peer dependency** instead of a bundled one. Every `@chat-adapter/*` pins `chat` exactly, so bundling our own copy produced a second `chat` with incompatible private types (the `_subjectPromise` / "two copies of chat" adapter error) whenever versions drifted. Now `payload-agent` uses the single copy your adapters resolve. **Migration:** keep all your `@chat-adapter/*` packages on one release line and remove any `pnpm.overrides.chat` workaround. You do not install `chat` (your adapter brings it) or `zod` (it stays bundled in `payload-agent`)
