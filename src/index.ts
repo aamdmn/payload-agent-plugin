@@ -1,4 +1,3 @@
-import { createMemoryState } from "@chat-adapter/state-memory";
 import type { AnyTextAdapter } from "@tanstack/ai";
 import type {
   Adapter,
@@ -18,6 +17,7 @@ import {
   runAuthorize,
 } from "./access.js";
 import { type Agent, createAgent } from "./agent.js";
+import { createMemoryState } from "./memory-state.js";
 import { loadGeneratedTypes } from "./schema-types.js";
 import type { RichTextMode } from "./tools.js";
 
