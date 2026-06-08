@@ -37,6 +37,18 @@ Use these sections under `## [Unreleased]`:
 - **Internal changes (from issues)**: `Fixed foo bar ([#123](https://github.com/aamdmn/payload-agent/issues/123))`
 - **External contributions**: `Added feature X ([#456](https://github.com/aamdmn/payload-agent/pull/456) by [@username](https://github.com/username))`
 
+## Release
+
+Publish, git tag, and GitHub release are a single command so they cannot drift apart (0.9.0 and 0.10.0 reached npm but were never tagged/released because this step was manual).
+
+1. In the feature PR: bump `version` in `package.json` and move the `[Unreleased]` entries into a new `## [x.y.z] - YYYY-MM-DD` CHANGELOG section.
+2. Merge to `main`, then from a clean, up-to-date `main` run:
+   - `pnpm release` — releases the current `package.json` version
+   - `pnpm release "short summary"` — same, with a custom GitHub release title (default title is `vx.y.z`)
+   - `pnpm release --dry-run` — runs every check and prints the plan, changes nothing
+
+`scripts/release.mjs` runs all read-only checks first (on `main`, clean tree, in sync with origin, tag does not already exist, version not already on npm, `gh` installed + authed), then `pnpm publish` (pnpm-only — see `ensure-pnpm.mjs`), then creates and pushes the annotated tag, then the GitHub release. Release notes are pulled from the matching `CHANGELOG.md` section, so the changelog is the single source of truth — do not hand-write release notes.
+
 ## **CRITICAL** Tool Usage Rules **CRITICAL**
 - NEVER use sed/cat to read a file or a range of a file. Always use the read tool (use offset + limit for ranged reads).
 - You MUST read every file you modify in full before editing.
