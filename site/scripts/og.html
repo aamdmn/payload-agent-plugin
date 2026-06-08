@@ -1,0 +1,179 @@
+<!doctype html>
+<!--
+  Source for the social card at site/public/og.png.
+  Regenerate after editing: `node scripts/generate-og.mjs` (from site/).
+  Matches the landing design system (site/DESIGN.md): white canvas, thin Geist
+  display type, Geist Mono labels, one electric-blue accent ($ only).
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      @font-face {
+        font-family: "Geist Variable";
+        src: url("../node_modules/@fontsource-variable/geist/files/geist-latin-wght-normal.woff2")
+          format("woff2");
+        font-weight: 100 900;
+        font-style: normal;
+        font-display: block;
+      }
+      @font-face {
+        font-family: "Geist Mono Variable";
+        src: url("../node_modules/@fontsource-variable/geist-mono/files/geist-mono-latin-wght-normal.woff2")
+          format("woff2");
+        font-weight: 100 900;
+        font-style: normal;
+        font-display: block;
+      }
+
+      :root {
+        --bg: #ffffff;
+        --fg: #000000;
+        --secondary: #666666;
+        --muted: #999999;
+        --hairline: #eaeaea;
+        --surface: #fafafa;
+        --accent: #0b5fff;
+      }
+
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        width: 1200px;
+        height: 630px;
+      }
+
+      body {
+        background: var(--bg);
+        color: var(--fg);
+        font-family: "Geist Variable", -apple-system, sans-serif;
+        -webkit-font-smoothing: antialiased;
+        text-rendering: optimizeLegibility;
+        font-synthesis: none;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        padding: 72px 80px;
+      }
+
+      .mono {
+        font-family: "Geist Mono Variable", ui-monospace, monospace;
+      }
+
+      .top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      .wordmark {
+        font-family: "Geist Mono Variable", monospace;
+        font-weight: 500;
+        font-size: 22px;
+        letter-spacing: -0.01em;
+      }
+
+      .eyebrow {
+        font-family: "Geist Mono Variable", monospace;
+        font-size: 14px;
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        color: var(--secondary);
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .badge {
+        color: var(--accent);
+        border: 1px solid var(--accent);
+        border-radius: 999px;
+        padding: 3px 10px;
+        font-size: 11px;
+        letter-spacing: 0.12em;
+      }
+
+      .rule {
+        height: 1px;
+        background: var(--hairline);
+        margin-top: 34px;
+      }
+
+      h1 {
+        font-weight: 300;
+        font-size: 76px;
+        line-height: 1;
+        letter-spacing: -0.02em;
+        max-width: 920px;
+      }
+
+      .lede {
+        margin-top: 28px;
+        font-size: 25px;
+        line-height: 1.45;
+        color: var(--secondary);
+        max-width: 760px;
+        font-weight: 400;
+      }
+
+      .install {
+        margin-top: 40px;
+        display: inline-flex;
+        align-items: center;
+        gap: 12px;
+        border: 1px solid var(--hairline);
+        background: var(--surface);
+        border-radius: 10px;
+        padding: 14px 20px;
+        font-family: "Geist Mono Variable", monospace;
+        font-size: 18px;
+        width: fit-content;
+      }
+
+      .install .dollar {
+        color: var(--accent);
+      }
+
+      .foot {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        font-family: "Geist Mono Variable", monospace;
+        font-size: 14px;
+        letter-spacing: 0.04em;
+        color: var(--secondary);
+      }
+    </style>
+  </head>
+  <body>
+    <div>
+      <div class="top">
+        <div class="wordmark">payload-agent</div>
+        <div class="eyebrow">Payload CMS plugin <span class="badge">BETA</span></div>
+      </div>
+      <div class="rule"></div>
+    </div>
+
+    <div>
+      <h1>Manage your Payload content straight from&nbsp;chat.</h1>
+      <p class="lede">
+        An AI agent inside your Payload instance — your team queries, edits, and
+        translates content from Slack, Telegram&nbsp;&amp;&nbsp;more.
+      </p>
+      <div class="install">
+        <span class="dollar">$</span><span>pnpm add payload-agent</span>
+      </div>
+    </div>
+
+    <div class="foot">
+      <span>agent.aamdmn.com</span>
+      <span>Open source · MIT · TanStack AI · Code Mode</span>
+    </div>
+  </body>
+</html>
