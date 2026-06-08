@@ -26,8 +26,6 @@ Powered by [Chat SDK](https://www.npmjs.com/package/chat) for multi-platform mes
 pnpm add payload-agent @tanstack/ai-anthropic @chat-adapter/telegram
 ```
 
-No version pins: `payload-agent` builds on `@tanstack/ai 0.28` (the current line), which the latest `@tanstack/ai-anthropic` already targets, so it installs clean. `chat` comes from your adapter and `zod` ships inside `payload-agent`, both deduped automatically. (If a future provider release outpaces `payload-agent`, pin it to the supported line — see [AI providers](#ai-providers) and [Troubleshooting](#troubleshooting).)
-
 Prefer GPT? Use `@tanstack/ai-openai @tanstack/ai-client` instead. For a different chat platform, swap the adapter for any `@chat-adapter/*` (see [Supported Platforms](#supported-platforms)).
 
 ```ts
